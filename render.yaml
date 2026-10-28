@@ -18,7 +18,7 @@ services:
       - key: ONE_API_KEY
         sync: false
       - key: BACKEND_SECRET
-        generateValue: true
+        sync: false
       - key: DISCORD_CHANNEL_ID
         sync: false
       - key: DATABASE_URL
