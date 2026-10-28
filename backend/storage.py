@@ -75,7 +75,8 @@ def conn():
     if PG:
         import psycopg
         from psycopg.rows import dict_row
-        c = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=10)
+        # prepare_threshold=None: no server-side prepared statements, so Supabase's connection pooler is happy.
+        c = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=10, prepare_threshold=None)
     else:
         c = sqlite3.connect(settings.DB_PATH)
         c.row_factory = sqlite3.Row
