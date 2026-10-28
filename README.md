@@ -70,7 +70,7 @@ Requirements: Python 3.10 to 3.13 (CrewAI does not support 3.14) and Node 20 or 
 
 ## Roadmap
 
-In-app chat with the helpers that edits the checklist. A Claude Code or Codex bridge. A Loom-style recorder with spacebar pause for the demo video. Apple Calendar and Luma sync. QR code scanning at the venue. Team members sharing one brief.
+Teams: one leader, a share link any member can pass on, join requests that the leader approves, and briefs owned by the team so everyone sees the same gameplan. In-app chat with the helpers that edits the checklist. A Claude Code or Codex bridge. A Loom-style recorder with spacebar pause for the demo video. Apple Calendar and Luma sync. QR code scanning at the venue. Team members sharing one brief.
 
 ## Honest notes
 
