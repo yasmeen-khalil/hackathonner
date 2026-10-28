@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import DeadlineBar from "@/components/DeadlineBar";
-import { ClerkProvider, SignedIn, UserButton } from "@clerk/nextjs";
+import { ClerkProvider, Show, UserButton } from "@clerk/nextjs";
 
 const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -24,7 +24,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <>
       <div className="flex items-stretch border-b border-neutral-200 bg-white">
         <div className="flex-1"><DeadlineBar /></div>
-        {hasClerk && <div className="flex items-center border-l border-neutral-200 px-3"><Suspense fallback={null}><SignedIn><UserButton /></SignedIn></Suspense></div>}
+        {hasClerk && <div className="flex items-center border-l border-neutral-200 px-3"><Suspense fallback={null}><Show when="signed-in"><UserButton /></Show></Suspense></div>}
       </div>
       <div className="flex min-h-[calc(100vh-2.5rem)]">
         <Suspense fallback={<div className="md:w-44" />}><Nav /></Suspense>
