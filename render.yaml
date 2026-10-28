@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: hackathonner-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: YDC_API_KEY
+        sync: false
+      - key: PARASAIL_API_KEY
+        sync: false
+      - key: PARASAIL_MODEL
+        value: parasail-glm-53-flash
+      - key: PARASAIL_FAST_MODEL
+        value: parasail-deepseek-v4-flash
+      - key: ONE_API_KEY
+        sync: false
+      - key: BACKEND_SECRET
+        generateValue: true
+      - key: DISCORD_CHANNEL_ID
+        sync: false

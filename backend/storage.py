@@ -18,10 +18,11 @@ CREATE TABLE IF NOT EXISTS hackathons (
   tools_json TEXT,
   plan_json TEXT,
   after_json TEXT,                 -- {submitted_at, repo_url, video_url, placing, prizes, judge_comments, notes, retro}
-  error TEXT
+  error TEXT,
+  owner TEXT NOT NULL DEFAULT 'local'
 );
-CREATE TABLE IF NOT EXISTS profile (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
+CREATE TABLE IF NOT EXISTS profiles (
+  owner TEXT PRIMARY KEY,
   data_json TEXT NOT NULL
 );
 """
@@ -45,13 +46,16 @@ def conn():
 def init():
     with conn() as c:
         c.executescript(SCHEMA)
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(hackathons)").fetchall()}
+        if "owner" not in cols:
+            c.execute("ALTER TABLE hackathons ADD COLUMN owner TEXT NOT NULL DEFAULT 'local'")
 
 
-def create_hackathon(urls: list[str]) -> str:
+def create_hackathon(urls: list[str], owner: str = "local") -> str:
     hid = uuid.uuid4().hex[:10]
     with conn() as c:
-        c.execute("INSERT INTO hackathons (id, created_at, updated_at, status, urls_json) VALUES (?,?,?,?,?)",
-                  (hid, _now(), _now(), "building", json.dumps(urls)))
+        c.execute("INSERT INTO hackathons (id, created_at, updated_at, status, urls_json, owner) VALUES (?,?,?,?,?,?)",
+                  (hid, _now(), _now(), "building", json.dumps(urls), owner))
     return hid
 
 
@@ -76,15 +80,18 @@ def _row(r) -> dict:
     return d
 
 
-def get(hid: str) -> dict | None:
+def get(hid: str, owner: str | None = None) -> dict | None:
     with conn() as c:
-        r = c.execute("SELECT * FROM hackathons WHERE id = ?", (hid,)).fetchone()
+        if owner is None:
+            r = c.execute("SELECT * FROM hackathons WHERE id = ?", (hid,)).fetchone()
+        else:
+            r = c.execute("SELECT * FROM hackathons WHERE id = ? AND owner = ?", (hid, owner)).fetchone()
     return _row(r) if r else None
 
 
-def list_all() -> list[dict]:
+def list_all(owner: str = "local") -> list[dict]:
     with conn() as c:
-        rows = c.execute("SELECT * FROM hackathons ORDER BY created_at DESC").fetchall()
+        rows = c.execute("SELECT * FROM hackathons WHERE owner = ? ORDER BY created_at DESC", (owner,)).fetchall()
     out = []
     for r in rows:
         d = _row(r)
@@ -96,18 +103,18 @@ def list_all() -> list[dict]:
     return out
 
 
-def delete(hid: str):
+def delete(hid: str, owner: str = "local"):
     with conn() as c:
-        c.execute("DELETE FROM hackathons WHERE id = ?", (hid,))
+        c.execute("DELETE FROM hackathons WHERE id = ? AND owner = ?", (hid, owner))
 
 
-def get_profile() -> dict:
+def get_profile(owner: str = "local") -> dict:
     with conn() as c:
-        r = c.execute("SELECT data_json FROM profile WHERE id = 1").fetchone()
+        r = c.execute("SELECT data_json FROM profiles WHERE owner = ?", (owner,)).fetchone()
     return json.loads(r["data_json"]) if r else {}
 
 
-def put_profile(data: dict):
+def put_profile(data: dict, owner: str = "local"):
     with conn() as c:
-        c.execute("INSERT INTO profile (id, data_json) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json",
-                  (json.dumps(data),))
+        c.execute("INSERT INTO profiles (owner, data_json) VALUES (?, ?) ON CONFLICT(owner) DO UPDATE SET data_json = excluded.data_json",
+                  (owner, json.dumps(data)))

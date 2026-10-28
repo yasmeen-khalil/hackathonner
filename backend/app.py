@@ -5,7 +5,7 @@ import json
 import queue
 import threading
 from typing import Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -18,9 +18,26 @@ from crew import build_brief
 import discover as discover_mod
 import one_actions
 
-app = FastAPI(title="Hackathon companion API")
+app = FastAPI(title="Hackathonner API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 storage.init()
+
+BACKEND_SECRET = settings.os.environ.get("BACKEND_SECRET", "")
+
+
+@app.middleware("http")
+async def require_secret(request: Request, call_next):
+    """When BACKEND_SECRET is set (hosted), every call except /api/health must carry it. Locally it is open."""
+    if BACKEND_SECRET and request.url.path != "/api/health" and request.method != "OPTIONS":
+        if request.headers.get("x-api-key", "") != BACKEND_SECRET:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+    return await call_next(request)
+
+
+def owner_of(x_user_id: str | None) -> str:
+    """The signed-in user, as forwarded by the web app's proxy. 'local' when running without sign-in."""
+    return (x_user_id or "local").strip()[:128] or "local"
 
 # One event queue per hackathon being built. Late subscribers get a replay from the database.
 _queues: dict[str, list[queue.Queue]] = {}
@@ -99,31 +116,31 @@ def health():
 
 
 @app.get("/api/hackathons")
-def list_hackathons():
-    return storage.list_all()
+def list_hackathons(x_user_id: str | None = Header(default=None)):
+    return storage.list_all(owner_of(x_user_id))
 
 
 @app.post("/api/hackathons")
-def create_hackathon(body: NewHackathon):
+def create_hackathon(body: NewHackathon, x_user_id: str | None = Header(default=None)):
     urls = [u.strip() for u in body.urls if u.strip()]
     if not urls:
         raise HTTPException(400, "Paste at least one link")
-    hid = storage.create_hackathon(urls)
+    hid = storage.create_hackathon(urls, owner_of(x_user_id))
     threading.Thread(target=_build, args=(hid, urls), daemon=True).start()
     return {"id": hid}
 
 
 @app.get("/api/hackathons/{hid}")
-def get_hackathon(hid: str):
-    d = storage.get(hid)
+def get_hackathon(hid: str, x_user_id: str | None = Header(default=None)):
+    d = storage.get(hid, owner_of(x_user_id))
     if not d:
         raise HTTPException(404, "Not found")
     return d
 
 
 @app.patch("/api/hackathons/{hid}")
-def patch_hackathon(hid: str, body: Patch):
-    d = storage.get(hid)
+def patch_hackathon(hid: str, body: Patch, x_user_id: str | None = Header(default=None)):
+    d = storage.get(hid, owner_of(x_user_id))
     if not d:
         raise HTTPException(404, "Not found")
     fields = {}
@@ -141,14 +158,14 @@ def patch_hackathon(hid: str, body: Patch):
 
 
 @app.delete("/api/hackathons/{hid}")
-def delete_hackathon(hid: str):
-    storage.delete(hid)
+def delete_hackathon(hid: str, x_user_id: str | None = Header(default=None)):
+    storage.delete(hid, owner_of(x_user_id))
     return {"ok": True}
 
 
 @app.get("/api/hackathons/{hid}/events")
-async def events(hid: str):
-    d = storage.get(hid)
+async def events(hid: str, x_user_id: str | None = Header(default=None)):
+    d = storage.get(hid, owner_of(x_user_id))
     if not d:
         raise HTTPException(404, "Not found")
     q = _subscribe(hid)
@@ -208,8 +225,8 @@ def _event_rows(d: dict, what: str) -> list[dict]:
 
 
 @app.post("/api/hackathons/{hid}/calendar")
-def to_calendar(hid: str, body: CalendarBody):
-    d = storage.get(hid)
+def to_calendar(hid: str, body: CalendarBody, x_user_id: str | None = Header(default=None)):
+    d = storage.get(hid, owner_of(x_user_id))
     if not d:
         raise HTTPException(404, "Not found")
     rows = _event_rows(d, body.what)
@@ -228,8 +245,8 @@ def to_calendar(hid: str, body: CalendarBody):
 
 
 @app.post("/api/hackathons/{hid}/discord")
-def to_discord(hid: str, body: DiscordBody):
-    d = storage.get(hid)
+def to_discord(hid: str, body: DiscordBody, x_user_id: str | None = Header(default=None)):
+    d = storage.get(hid, owner_of(x_user_id))
     if not d or not d.get("brief"):
         raise HTTPException(404, "Not found or brief not ready")
     b = d["brief"]
@@ -250,19 +267,19 @@ def to_discord(hid: str, body: DiscordBody):
 
 
 @app.post("/api/discover")
-def discover(body: DiscoverBody):
+def discover(body: DiscoverBody, x_user_id: str | None = Header(default=None)):
     try:
-        return discover_mod.discover(body.query, storage.get_profile())
+        return discover_mod.discover(body.query, storage.get_profile(owner_of(x_user_id)))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(502, f"Discover failed: {str(exc)[:300]}")
 
 
 @app.get("/api/profile")
-def get_profile():
-    return storage.get_profile()
+def get_profile(x_user_id: str | None = Header(default=None)):
+    return storage.get_profile(owner_of(x_user_id))
 
 
 @app.put("/api/profile")
-def put_profile(data: dict[str, Any]):
-    storage.put_profile(data)
+def put_profile(data: dict[str, Any], x_user_id: str | None = Header(default=None)):
+    storage.put_profile(data, owner_of(x_user_id))
     return data
