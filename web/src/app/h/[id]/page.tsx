@@ -3,8 +3,9 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { API, api, Hackathon, Brief, Plan, Tools, After, OneStatus, fmtDate } from "@/lib/api";
 import Countdown from "@/components/Countdown";
+import { ConnectButton } from "@withone/connect/react";
 
-const SECTIONS = ["overview", "rules", "tools", "plan", "submit", "after"] as const;
+const SECTIONS = ["brief", "rules", "toolkit", "gameplan", "submit", "debrief"] as const;
 type Section = typeof SECTIONS[number];
 
 function Skeleton({ lines = 4 }: { lines?: number }) {
@@ -24,7 +25,7 @@ function Workspace() {
   const { id } = useParams<{ id: string }>();
   const [h, setH] = useState<Hackathon | null>(null);
   const [status, setStatus] = useState<string>("");
-  const [section, setSection] = useState<Section>("overview");
+  const [section, setSection] = useState<Section>("brief");
   const [err, setErr] = useState("");
   const [one, setOne] = useState<OneStatus | null>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -32,7 +33,7 @@ function Workspace() {
   useEffect(() => { api.oneStatus().then(setOne).catch(() => setOne(null)); }, []);
 
   useEffect(() => {
-    api.get(id).then(d => { setH(d); if (d.after?.submitted_at) setSection("after"); }).catch(e => setErr(String(e)));
+    api.get(id).then(d => { setH(d); if (d.after?.submitted_at) setSection("debrief"); }).catch(e => setErr(String(e)));
     const es = new EventSource(`${API}/api/hackathons/${id}/events`);
     esRef.current = es;
     es.onmessage = ev => {
@@ -60,7 +61,7 @@ function Workspace() {
     setH(d);
   }
 
-  const nav = useMemo(() => SECTIONS.filter(s => s !== "after" || h?.after?.submitted_at || h?.status === "ready"), [h]);
+  const nav = useMemo(() => SECTIONS.filter(s => s !== "debrief" || h?.after?.submitted_at || h?.status === "ready" || h?.status === "submitted"), [h]);
   if (err && !h) return <p className="text-red-600">{err}</p>;
   if (!h) return <Skeleton lines={6} />;
 
@@ -75,8 +76,9 @@ function Workspace() {
           </div>
           <div className="flex flex-col items-end gap-2">
             {h.after?.submitted_at ? <Chip tone="green">Submitted {fmtDate(h.after.submitted_at)}</Chip> : <Countdown iso={deadline} label="Submissions close in" />}
-            {status && <span className="text-xs text-neutral-500">{status}</span>}
-            {err && <span className="text-xs text-red-600">{err}</span>}
+            {status && <span className="text-xs text-neutral-500">Helpers: {status}</span>}
+            {(err || h.status === "error") && <span className="flex items-center gap-2 text-xs text-red-600">{err || h.error}
+              <button onClick={async () => { setErr(""); setStatus("Starting again"); await fetch(`${API}/api/hackathons/${id}/rebuild`, { method: "POST" }); window.location.reload(); }} className="rounded border border-red-300 px-2 py-0.5 text-red-700">Rebuild</button></span>}
           </div>
         </div>
         <nav className="mt-4 flex gap-1 overflow-x-auto text-sm">
@@ -84,7 +86,7 @@ function Workspace() {
         </nav>
       </header>
 
-      {section === "overview" && (!b ? <Skeleton /> : (
+      {section === "brief" && (!b ? <Skeleton /> : (
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <H>When</H>
@@ -123,7 +125,7 @@ function Workspace() {
         </div>
       ))}
 
-      {section === "tools" && (() => { const list = tools?.tools || b?.required_tools; return !list ? <Skeleton /> : (
+      {section === "toolkit" && (() => { const list = tools?.tools || b?.required_tools; return !list ? <Skeleton /> : (
         <div className="grid gap-3 md:grid-cols-2">{list.map(t => (
           <div key={t.name} className="rounded border border-neutral-200 bg-white p-4">
             <div className="flex items-center justify-between"><div className="font-medium">{t.name}</div>{t.free_for_event != null && <Chip tone={t.free_for_event ? "green" : "neutral"}>{t.free_for_event ? "free for the event" : "own account"}</Chip>}</div>
@@ -139,7 +141,7 @@ function Workspace() {
           </div></div>
       ); })()}
 
-      {section === "plan" && (!plan ? <Skeleton /> : (
+      {section === "gameplan" && (!plan ? <Skeleton /> : (
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <div className="rounded border border-neutral-900 bg-white p-4"><div className="text-xs uppercase tracking-wide text-neutral-500">Next action</div><div className="mt-1 font-medium">{plan.next_action}</div></div>
@@ -168,18 +170,19 @@ function Workspace() {
             {b.submission.instructions && <p className="mt-2 text-sm">{b.submission.instructions}</p>}
             {b.submission.fields.length > 0 && <><H>The form asks for</H><ul className="list-disc pl-5 text-sm">{b.submission.fields.map((f, i) => <li key={i}>{f}</li>)}</ul></>}
           </div>
+          <DeadlineFix id={id} current={deadline} onSaved={d => setH(d)} />
           <SubmitForm after={h.after || {}} onSave={saveAfter} />
         </div>
       ))}
 
-      {section === "after" && <AfterForm after={h.after || {}} onSave={saveAfter} />}
+      {section === "debrief" && <AfterForm after={h.after || {}} onSave={saveAfter} />}
     </div>
   );
 }
 
 function SubmitForm({ after, onSave }: { after: After; onSave: (a: After) => Promise<void> }) {
   const [repo, setRepo] = useState(after.repo_url || ""), [video, setVideo] = useState(after.video_url || "");
-  if (after.submitted_at) return <p className="mt-4 text-sm text-emerald-700">Marked submitted {fmtDate(after.submitted_at)}. Fill in results under After.</p>;
+  if (after.submitted_at) return <p className="mt-4 text-sm text-emerald-700">Marked submitted {fmtDate(after.submitted_at)}. Fill in results under Debrief.</p>;
   return (
     <div className="mt-4 rounded border border-neutral-200 bg-white p-4">
       <H>Mark as submitted</H>
@@ -212,30 +215,62 @@ function AfterForm({ after, onSave }: { after: After; onSave: (a: After) => Prom
   );
 }
 
+type OneConnectStatus = { configured: boolean; connected: boolean; platforms: Record<string, { connected: boolean; name?: string }>; error?: string; reconnect?: boolean };
+
 function Actions({ id, one, deadline, agendaCount, after, onDone }: { id: string; one: OneStatus | null; deadline?: string | null; agendaCount: number; after: After; onDone: (d: Hackathon) => void }) {
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
-  const cal = one?.platforms?.["google-calendar"]?.connected;
-  const dis = one?.platforms?.["discord"]?.connected;
+  const [oc, setOc] = useState<OneConnectStatus | null>(null);
+  useEffect(() => { fetch("/api/actions").then(r => r.json()).then(setOc).catch(() => setOc(null)); }, []);
+  const viaConnect = !!oc?.configured;
+  const cal = viaConnect ? !!oc?.platforms?.["google-calendar"]?.connected : !!one?.platforms?.["google-calendar"]?.connected;
+  const dis = viaConnect ? !!oc?.platforms?.["discord"]?.connected : !!one?.platforms?.["discord"]?.connected;
   async function run(what: "deadline" | "all" | "discord") {
     setBusy(what); setMsg("");
     try {
-      if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
-      else { const r = await api.toCalendar(id, what); setMsg(`Created ${r.created.length} calendar event${r.created.length === 1 ? "" : "s"}.`); onDone(await api.get(id)); }
+      if (viaConnect) {
+        const r = await fetch("/api/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hackathonId: id, what }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        setMsg(what === "discord" ? "Posted to Discord through One." : `Created ${d.created.length} calendar event${d.created.length === 1 ? "" : "s"} through One.`);
+      } else if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
+      else { const r = await api.toCalendar(id, what); setMsg(`Created ${r.created.length} calendar event${r.created.length === 1 ? "" : "s"}.`); }
+      onDone(await api.get(id));
     } catch (e) { setMsg(String(e)); } finally { setBusy(""); }
   }
+  const hint = viaConnect
+    ? (oc?.connected ? "Events are created on your own Google Calendar through One." : "Connect your own apps through One. Hackathonner only gets what you grant, and you can revoke it any time.")
+    : (one?.error ? `One: ${one.error}` : !cal ? "Connect Google Calendar through One to enable these." : "Events are created through One on the primary calendar.");
   return (
     <div className="rounded border border-neutral-200 bg-white p-4 text-sm">
+      {viaConnect && !oc?.connected && (
+        <div className="mb-3"><ConnectButton authorizeUrl="/api/one/authorize" logos={["google-calendar", "discord"]} connected={false} returnTo={typeof window !== "undefined" ? window.location.pathname : "/"} onSuccess={() => fetch("/api/actions").then(r => r.json()).then(setOc)} onError={(e: unknown) => setMsg(String(e))} /></div>
+      )}
       <div className="flex flex-wrap gap-2">
         <button disabled={!cal || !deadline || !!busy} onClick={() => run("deadline")} className="rounded border border-neutral-900 px-3 py-1.5 disabled:opacity-40">{busy === "deadline" ? "Adding…" : "Deadline to Google Calendar"}</button>
         <button disabled={!cal || !deadline || agendaCount === 0 || !!busy} onClick={() => run("all")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "all" ? "Adding…" : `Deadline + ${agendaCount} agenda items`}</button>
         <button disabled={!dis || !!busy} onClick={() => run("discord")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "discord" ? "Posting…" : "Post brief to Discord"}</button>
       </div>
-      <p className="mt-2 text-xs text-neutral-500">
-        {one?.error ? `One: ${one.error}` : !cal ? "Connect Google Calendar through One (one add google-calendar) to enable these." : !deadline ? "No dated deadline in the brief yet." : "Events are created through One on your primary calendar."}
-      </p>
+      <p className="mt-2 text-xs text-neutral-500">{!deadline && cal ? "No dated deadline in the brief yet. Set one under Submit." : hint}</p>
       {msg && <p className="mt-2 text-xs">{msg}</p>}
       {after.calendar_events?.length ? <ul className="mt-2 space-y-1 text-xs">{after.calendar_events.map((e, i) => <li key={i}>{e.summary} · {fmtDate(e.start)} {e.link && <a className="underline" target="_blank" href={e.link}>open</a>}</li>)}</ul> : null}
+    </div>
+  );
+}
+
+function DeadlineFix({ id, current, onSaved }: { id: string; current?: string | null; onSaved: (d: Hackathon) => void }) {
+  const toLocal = (iso?: string | null) => { if (!iso) return ""; const d = new Date(iso); if (isNaN(d.getTime())) return ""; const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const [v, setV] = useState(toLocal(current));
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setV(toLocal(current)), [current]);
+  return (
+    <div className="mt-4 rounded border border-neutral-200 bg-white p-4">
+      <H>{current ? "Deadline" : "Set the deadline"}</H>
+      <p className="mb-2 text-xs text-neutral-500">{current ? "Read from the pages. Correct it here if the organizers announce a change." : "The pages did not state a dated deadline. Enter it and the countdown starts."}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="datetime-local" value={v} onChange={e => setV(e.target.value)} className="rounded border border-neutral-300 p-2 text-sm" />
+        <button disabled={!v || saving} onClick={async () => { setSaving(true); const iso = new Date(v).toISOString(); onSaved(await api.patch(id, { brief: { submission: { deadline: iso } } })); setSaving(false); }} className="rounded bg-black px-3 py-2 text-sm text-white disabled:opacity-40">{saving ? "Saving…" : "Save deadline"}</button>
+      </div>
     </div>
   );
 }

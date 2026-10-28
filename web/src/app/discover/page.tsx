@@ -1,12 +1,15 @@
 "use client";
 import { useState } from "react";
-import { API } from "@/lib/api";
+import { API, api } from "@/lib/api";
+import { useRouter } from "next/navigation";
 type Found = { title: string; url: string; when?: string | null; where?: string | null; format?: string | null; fit?: number | null; why?: string | null; description?: string | null };
 export default function Discover() {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Found[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const router = useRouter();
+  async function build(url: string) { const { id } = await api.create([url]); router.push(`/h/${id}`); }
   async function go() {
     setBusy(true); setErr("");
     try {
@@ -26,6 +29,7 @@ export default function Discover() {
           <div className="flex items-start justify-between gap-3"><a className="font-medium underline" target="_blank" href={r.url}>{r.title}</a>{r.fit != null && <span className="rounded bg-neutral-900 px-2 py-0.5 text-xs text-white">fit {r.fit}/10</span>}</div>
           <div className="text-sm text-neutral-500">{[r.when, r.where, r.format].filter(Boolean).join(" · ")}</div>
           {r.why && <p className="mt-1 text-sm">{r.why}</p>}
+          <button onClick={() => build(r.url)} className="mt-2 rounded border border-neutral-900 px-3 py-1 text-xs">Build its brief</button>
         </li>))}{rows.length === 0 && <p className="text-sm text-neutral-500">Nothing found.</p>}</ul>}
     </div>
   );

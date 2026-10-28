@@ -38,7 +38,7 @@ export const api = {
   list: () => fetch(`${API}/api/hackathons`, { cache: "no-store" }).then(j<HackathonRow[]>),
   get: (id: string) => fetch(`${API}/api/hackathons/${id}`, { cache: "no-store" }).then(j<Hackathon>),
   create: (urls: string[]) => fetch(`${API}/api/hackathons`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ urls }) }).then(j<{ id: string }>),
-  patch: (id: string, body: Partial<{ name: string; status: string; after: After; plan: Plan }>) =>
+  patch: (id: string, body: Partial<{ name: string; status: string; after: After; plan: Plan; brief: Partial<Brief> | { submission: Partial<Submission> } }>) =>
     fetch(`${API}/api/hackathons/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(j<Hackathon>),
   remove: (id: string) => fetch(`${API}/api/hackathons/${id}`, { method: "DELETE" }).then(j<{ ok: boolean }>),
   oneStatus: () => fetch(`${API}/api/one/status`, { cache: "no-store" }).then(j<OneStatus>),

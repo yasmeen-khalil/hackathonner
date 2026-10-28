@@ -21,3 +21,5 @@ services:
         generateValue: true
       - key: DISCORD_CHANNEL_ID
         sync: false
+      - key: DATABASE_URL
+        sync: false

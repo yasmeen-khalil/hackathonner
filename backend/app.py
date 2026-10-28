@@ -6,7 +6,6 @@ import queue
 import threading
 from typing import Any
 from fastapi import FastAPI, HTTPException, Header, Request
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -19,8 +18,8 @@ import discover as discover_mod
 import one_actions
 
 app = FastAPI(title="Hackathonner API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 storage.init()
+storage.mark_interrupted()
 
 BACKEND_SECRET = settings.os.environ.get("BACKEND_SECRET", "")
 
@@ -108,11 +107,12 @@ class Patch(BaseModel):
     status: str | None = None
     after: dict[str, Any] | None = None
     plan: dict[str, Any] | None = None
+    brief: dict[str, Any] | None = None  # shallow merge; "submission" and "venue" merge one level deeper
 
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "parasail_key": bool(settings.PARASAIL_API_KEY), "youcom_key": bool(settings.YDC_API_KEY)}
+    return {"ok": True, "parasail_key": bool(settings.PARASAIL_API_KEY), "youcom_key": bool(settings.YDC_API_KEY), "db": storage.engine(), "secured": bool(BACKEND_SECRET)}
 
 
 @app.get("/api/hackathons")
@@ -122,9 +122,11 @@ def list_hackathons(x_user_id: str | None = Header(default=None)):
 
 @app.post("/api/hackathons")
 def create_hackathon(body: NewHackathon, x_user_id: str | None = Header(default=None)):
-    urls = [u.strip() for u in body.urls if u.strip()]
+    urls = [u.strip() for u in body.urls if u.strip().lower().startswith(("http://", "https://"))][:10]
     if not urls:
-        raise HTTPException(400, "Paste at least one link")
+        raise HTTPException(400, "Paste at least one http(s) link")
+    if any(len(u) > 2000 for u in urls):
+        raise HTTPException(400, "A link is too long")
     hid = storage.create_hackathon(urls, owner_of(x_user_id))
     threading.Thread(target=_build, args=(hid, urls), daemon=True).start()
     return {"id": hid}
@@ -152,6 +154,14 @@ def patch_hackathon(hid: str, body: Patch, x_user_id: str | None = Header(defaul
         fields["after_json"] = {**(d.get("after") or {}), **body.after}
     if body.plan is not None:
         fields["plan_json"] = body.plan
+    if body.brief is not None and d.get("brief"):
+        merged = {**d["brief"]}
+        for k, v in body.brief.items():
+            if k in ("submission", "venue") and isinstance(v, dict):
+                merged[k] = {**(merged.get(k) or {}), **v}
+            else:
+                merged[k] = v
+        fields["brief_json"] = merged
     if fields:
         storage.update(hid, **fields)
     return storage.get(hid)
@@ -161,6 +171,17 @@ def patch_hackathon(hid: str, body: Patch, x_user_id: str | None = Header(defaul
 def delete_hackathon(hid: str, x_user_id: str | None = Header(default=None)):
     storage.delete(hid, owner_of(x_user_id))
     return {"ok": True}
+
+
+@app.post("/api/hackathons/{hid}/rebuild")
+def rebuild(hid: str, x_user_id: str | None = Header(default=None)):
+    """Run the helpers again on the same links. Used after an interrupted build or when the pages changed."""
+    d = storage.get(hid, owner_of(x_user_id))
+    if not d:
+        raise HTTPException(404, "Not found")
+    storage.update(hid, status="building", error=None, tools_json=None, plan_json=None)
+    threading.Thread(target=_build, args=(hid, d["urls"]), daemon=True).start()
+    return {"id": hid, "status": "building"}
 
 
 @app.get("/api/hackathons/{hid}/events")
@@ -224,6 +245,15 @@ def _event_rows(d: dict, what: str) -> list[dict]:
     return rows
 
 
+@app.get("/api/hackathons/{hid}/calendar-rows")
+def calendar_rows(hid: str, what: str = "deadline", x_user_id: str | None = Header(default=None)):
+    """The deadline and agenda as calendar rows. The web app creates them through One Connect with the user's grant."""
+    d = storage.get(hid, owner_of(x_user_id))
+    if not d:
+        raise HTTPException(404, "Not found")
+    return {"rows": _event_rows(d, what)}
+
+
 @app.post("/api/hackathons/{hid}/calendar")
 def to_calendar(hid: str, body: CalendarBody, x_user_id: str | None = Header(default=None)):
     d = storage.get(hid, owner_of(x_user_id))
@@ -272,6 +302,28 @@ def discover(body: DiscoverBody, x_user_id: str | None = Header(default=None)):
         return discover_mod.discover(body.query, storage.get_profile(owner_of(x_user_id)))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(502, f"Discover failed: {str(exc)[:300]}")
+
+
+class KvBody(BaseModel):
+    value: str
+
+
+@app.get("/api/kv/{key}")
+def kv_get(key: str, x_user_id: str | None = Header(default=None)):
+    """Tiny per-user store. The web app keeps each user's One Connect grant identifier here."""
+    return {"value": storage.kv_get(owner_of(x_user_id), key)}
+
+
+@app.put("/api/kv/{key}")
+def kv_put(key: str, body: KvBody, x_user_id: str | None = Header(default=None)):
+    storage.kv_put(owner_of(x_user_id), key, body.value)
+    return {"ok": True}
+
+
+@app.delete("/api/kv/{key}")
+def kv_delete(key: str, x_user_id: str | None = Header(default=None)):
+    storage.kv_delete(owner_of(x_user_id), key)
+    return {"ok": True}
 
 
 @app.get("/api/profile")

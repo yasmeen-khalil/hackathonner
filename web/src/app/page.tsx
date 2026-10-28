@@ -25,8 +25,10 @@ function Card({ h }: { h: HackathonRow }) {
 
 export default function Home() {
   const [rows, setRows] = useState<HackathonRow[] | null>(null);
-  useEffect(() => { api.list().then(setRows).catch(() => setRows([])); }, []);
+  const [apiErr, setApiErr] = useState("");
+  useEffect(() => { api.list().then(setRows).catch(e => { setApiErr(String(e)); setRows([]); }); }, []);
   if (rows === null) return <p className="text-neutral-500">Loading…</p>;
+  if (apiErr) return <div className="mx-auto max-w-4xl rounded border border-red-200 bg-red-50 p-6 text-sm"><div className="font-medium text-red-800">The Hackathonner API is not reachable.</div><p className="mt-1 text-red-700">{apiErr}</p></div>;
   const now = Date.now();
   const isPast = (h: HackathonRow) => h.status === "submitted" || (h.end ? new Date(h.end).getTime() < now : h.deadline ? new Date(h.deadline).getTime() < now : false);
   const isToday = (h: HackathonRow) => !isPast(h) && h.start && new Date(h.start).getTime() <= now;
