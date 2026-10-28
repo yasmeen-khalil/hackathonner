@@ -12,7 +12,7 @@ Every hackathon scatters its information. Today's event alone lived on a Luma pa
 
 ## What it does
 
-1. **Brief.** Paste every link you have. Hackathonner reads the pages and builds a dashboard for that hackathon: when and where, tracks, requirements and disqualifiers, the rubric with weights, every must-use tool explained in plain words, the submission link and what the form asks for, the agenda, prizes, Discord, and a list of what the pages did not say so you can ask the organizers.
+1. **Brief.** Paste every link you have, or photograph the QR codes on the card, slide or poster and the links are read out of them. Hackathonner reads the pages and builds a dashboard for that hackathon: when and where, tracks, requirements and disqualifiers, the rubric with weights, every must-use tool explained in plain words, the submission link and what the form asks for, the agenda, prizes, Discord, and a list of what the pages did not say so you can ask the organizers.
 2. **Countdown.** The submission deadline is on every screen. Amber in the last two hours, red in the last thirty minutes.
 3. **Gameplan.** A checklist with times, built backwards from the deadline, plus the agenda as a timeline. Tick things off.
 4. **Actions.** One click puts the deadline and agenda on your own Google Calendar, or posts the brief to your Discord channel.
