@@ -3,7 +3,7 @@ Only facts present in the search snippets are used. Missing dates or places stay
 from __future__ import annotations
 import datetime as dt
 import json
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel
 from crewai import Agent
 
@@ -17,7 +17,7 @@ class Found(BaseModel):
     url: str
     when: Optional[str] = None     # as written in the snippet, or null
     where: Optional[str] = None    # city or "online", or null
-    format: Optional[str] = None   # in_person | online | hybrid | null
+    format: Optional[Literal["in_person", "online", "hybrid"]] = None
     fit: Optional[int] = None      # 1 to 10 against the profile, null when the snippet says too little
     why: Optional[str] = None      # one sentence
     description: Optional[str] = None
@@ -51,14 +51,17 @@ def discover(query: str, profile: dict) -> dict:
             if r["url"] and r["url"] not in seen:
                 seen.add(r["url"])
                 hits.append(r)
+    hits = hits[:12]  # keep the Matcher's input small so it answers in about a minute
     if not hits:
         return {"results": [], "queries": _queries(query, profile)}
     matcher = Agent(role="Hackathon Matcher",
                     goal="Rank hackathon search results against a builder's profile, honestly.",
                     backstory=("You read search results about hackathons and a builder's profile. Keep only results that are "
                                "actual hackathons or hackathon listings. For each, copy the date and place exactly as the snippet "
-                               "states them, or leave them null. Give a fit score from 1 to 10 against the profile with a one-sentence "
-                               "reason that names the matching interest, city or stack. Never invent dates, places or prizes."),
+                               "states them, or leave them null. format is in_person, online or hybrid only when the snippet says so, "
+                               "else null. Give a fit score from 1 to 10 against the profile with a one-sentence reason that names "
+                               "the matching interest, city or stack. A listing page that merely aggregates events gets fit 5 at most. "
+                               "Never invent dates, places or prizes."),
                     llm=make_llm(settings.FAST_MODEL, 4000), verbose=False, allow_delegation=False)
     desc = (f"Today is {dt.date.today().isoformat()}.\nProfile:\n{json.dumps(profile, indent=1)}\n\nSearch results:\n"
             + json.dumps(hits, indent=1) + "\n\nReturn the ranked list, best fit first, as JSON matching DiscoverResult.")

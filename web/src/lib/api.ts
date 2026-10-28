@@ -1,4 +1,5 @@
-export const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+// Every call goes through our own /api/backend proxy, which checks the session and holds the backend secret.
+export const API = "/api/backend";
 
 export type Link = { label: string; url: string; kind: string };
 export type Venue = { name?: string | null; address?: string | null; city?: string | null; map_url?: string | null; doors_time?: string | null };
