@@ -134,11 +134,7 @@ function Workspace() {
             {t.key_source && <p className="mt-2 text-sm"><span className="text-neutral-500">Key: </span>{t.key_source}</p>}
             {t.docs_url && <a className="mt-2 inline-block text-sm underline" target="_blank" href={t.docs_url}>Docs</a>}
           </div>))}{!tools && <p className="text-xs text-neutral-500 md:col-span-2">Explainer agent is still writing the plain-words versions…</p>}
-          <div className="rounded border border-dashed border-neutral-300 p-4 text-sm md:col-span-2">
-            <div className="font-medium">Your connections through One</div>
-            {!one ? <p className="text-neutral-500">Checking…</p> : one.error ? <p className="text-neutral-500">{one.error}</p> : (
-              <div className="mt-1 flex flex-wrap gap-2">{Object.entries(one.platforms).map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{k}{v.connected ? " connected" : " not connected"}</Chip>)}</div>)}
-          </div></div>
+          <ConnectionsBox one={one} /></div>
       ); })()}
 
       {section === "gameplan" && (!plan ? <Skeleton /> : (
@@ -225,15 +221,17 @@ function Actions({ id, one, deadline, agendaCount, after, onDone }: { id: string
   const viaConnect = !!oc?.configured;
   const cal = viaConnect ? !!oc?.platforms?.["google-calendar"]?.connected : !!one?.platforms?.["google-calendar"]?.connected;
   const dis = viaConnect ? !!oc?.platforms?.["discord"]?.connected : !!one?.platforms?.["discord"]?.connected;
-  async function run(what: "deadline" | "all" | "discord") {
+  const gm = viaConnect && !!oc?.platforms?.["gmail"]?.connected;
+  async function run(what: "deadline" | "all" | "discord" | "email") {
     setBusy(what); setMsg("");
     try {
       if (viaConnect) {
         const r = await fetch("/api/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hackathonId: id, what }) });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || r.statusText);
-        setMsg(what === "discord" ? "Posted to Discord through One." : `Created ${d.created.length} event${d.created.length === 1 ? "" : "s"} in your ${d.calendar || "Hackathonner"} calendar through One.`);
-      } else if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
+        setMsg(what === "discord" ? "Posted to Discord through One." : what === "email" ? `Emailed the brief to ${d.to} through One.` : `Created ${d.created.length} event${d.created.length === 1 ? "" : "s"} in your ${d.calendar || "Hackathonner"} calendar through One.`);
+      } else if (what === "email") { setMsg("Email needs One Connect, which is not configured here."); }
+      else if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
       else { const r = await api.toCalendar(id, what); setMsg(`Created ${r.created.length} calendar event${r.created.length === 1 ? "" : "s"}.`); }
       onDone(await api.get(id));
     } catch (e) { setMsg(String(e)); } finally { setBusy(""); }
@@ -249,6 +247,7 @@ function Actions({ id, one, deadline, agendaCount, after, onDone }: { id: string
       <div className="flex flex-wrap gap-2">
         <button disabled={!cal || !deadline || !!busy} onClick={() => run("deadline")} className="rounded border border-neutral-900 px-3 py-1.5 disabled:opacity-40">{busy === "deadline" ? "Adding…" : "Deadline to Google Calendar"}</button>
         <button disabled={!cal || !deadline || agendaCount === 0 || !!busy} onClick={() => run("all")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "all" ? "Adding…" : `Deadline + ${agendaCount} agenda items`}</button>
+        {gm && <button disabled={!!busy} onClick={() => run("email")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "email" ? "Sending…" : "Email me the brief"}</button>}
         {dis && <button disabled={!!busy} onClick={() => run("discord")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "discord" ? "Posting…" : "Post brief to Discord"}</button>}
       </div>
       <p className="mt-2 text-xs text-neutral-500">{!deadline && cal ? "No dated deadline in the brief yet. Set one under Submit." : hint}</p>
@@ -271,6 +270,29 @@ function DeadlineFix({ id, current, onSaved }: { id: string; current?: string | 
         <input type="datetime-local" value={v} onChange={e => setV(e.target.value)} className="rounded border border-neutral-300 p-2 text-sm" />
         <button disabled={!v || saving} onClick={async () => { setSaving(true); const iso = new Date(v).toISOString(); onSaved(await api.patch(id, { brief: { submission: { deadline: iso } } })); setSaving(false); }} className="rounded bg-black px-3 py-2 text-sm text-white disabled:opacity-40">{saving ? "Saving…" : "Save deadline"}</button>
       </div>
+    </div>
+  );
+}
+
+function ConnectionsBox({ one }: { one: OneStatus | null }) {
+  const [oc, setOc] = useState<OneConnectStatus | null>(null);
+  useEffect(() => { fetch("/api/actions").then(r => r.json()).then(setOc).catch(() => setOc(null)); }, []);
+  if (oc === null) return null;
+  if (oc.configured) {
+    return (
+      <div className="rounded border border-dashed border-neutral-300 p-4 text-sm md:col-span-2">
+        <div className="font-medium">Your own apps, through One</div>
+        {oc.connected ? (
+          <div className="mt-1 flex flex-wrap gap-2">{Object.entries(oc.platforms).map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{k}{v.connected ? " connected" : " not connected"}</Chip>)}</div>
+        ) : <p className="mt-1 text-neutral-500">Not connected yet. Use the Connect button under Gameplan. Hackathonner only receives what you grant, and you can revoke it on One at any time.</p>}
+      </div>
+    );
+  }
+  if (!one || one.error) return null;
+  return (
+    <div className="rounded border border-dashed border-neutral-300 p-4 text-sm md:col-span-2">
+      <div className="font-medium">Connections through One</div>
+      <div className="mt-1 flex flex-wrap gap-2">{Object.entries(one.platforms).map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{k}{v.connected ? " connected" : " not connected"}</Chip>)}</div>
     </div>
   );
 }

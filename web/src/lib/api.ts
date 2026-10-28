@@ -17,7 +17,7 @@ export type Brief = {
 };
 export type Plan = { next_action: string; checklist: ChecklistItem[]; timeline: AgendaItem[]; warnings: string[] };
 export type Tools = { tools: RequiredTool[] };
-export type After = { calendar_events?: { summary: string; start: string; link?: string | null }[]; submitted_at?: string; repo_url?: string; video_url?: string; placing?: string; prizes?: string; judge_comments?: string; notes?: string; retro?: string };
+export type After = { emailed_to?: string; emailed_at?: string; calendar_name?: string; calendar_events?: { summary: string; start: string; link?: string | null }[]; submitted_at?: string; repo_url?: string; video_url?: string; placing?: string; prizes?: string; judge_comments?: string; notes?: string; retro?: string };
 export type Hackathon = {
   id: string; status: "building" | "ready" | "error" | "submitted"; name?: string | null; urls: string[];
   sources?: { sources: { url: string; chars: number }[] } | null; brief?: Brief | null; tools?: Tools | null; plan?: Plan | null;

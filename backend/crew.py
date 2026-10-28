@@ -61,7 +61,11 @@ READER_RULES = (
     "Dates: output ISO 8601, with the time zone offset when the page states a time zone. Links: keep full URLs exactly. "
     "Required tools: list every sponsor product the rules say teams must build with. Rubric: copy criteria and weights. "
     "Submission: the exact deadline as written, the form or link, and the fields or materials it asks for. "
-    "Rubric: when tracks are scored differently, set 'track' on each criterion. Prizes and agenda: copy every line you find."
+    "Rubric: when tracks are scored differently, set 'track' on each criterion. Prizes and agenda: copy every line you find. "
+    "Time zone: if the pages state none but the venue city is stated, use that city's IANA time zone (for example "
+    "America/Los_Angeles for San Francisco) and add 'time zone inferred from the venue city' to unknowns. "
+    "Dates: if an agenda or deadline gives a clock time and the event date is stated anywhere in the sources (title, "
+    "header, text), combine them into full ISO 8601 with the offset. If no date is stated anywhere, leave dates null."
 )
 
 
@@ -108,8 +112,9 @@ class BriefFlow(Flow[BriefState]):
                                      "is and what talking to it looks like (an API you send text to, a Python library, a connector "
                                      "that holds logins), using your general knowledge of the product. job_here: two or three "
                                      "sentences on the exact job the rules give it at THIS event, grounded in the sources, with the "
-                                     "endpoints, commands or steps the sources name. key_source: where the key or account comes from, "
-                                     "and whether the event provides it. docs_url: only a link the sources give. No marketing words."),
+                                     "endpoints, commands or steps the sources name, covering every track or category the rules describe, not only "
+                                     "the first one. key_source: where the key or account comes from, and whether the event provides it. "
+                                     "docs_url: only a link the sources give. No marketing words."),
                           llm=make_llm(settings.FAST_MODEL, 4000), verbose=False, allow_delegation=False)
         desc = ("Required tools and partner notes from the brief:\n" + json.dumps(
             {"partners": brief.get("partners"), "required_tools": brief.get("required_tools"), "tracks": brief.get("tracks")},
@@ -128,9 +133,11 @@ class BriefFlow(Flow[BriefState]):
                         backstory=("You plan a hackathon day backwards from the submission deadline. The checklist always "
                                    "includes: read rules, set up every required tool, build the smallest end-to-end demo, write "
                                    "the README, record the demo video if one is required, fill the submission form, and a "
-                                   "freeze time 45 minutes before the deadline. Times are ISO 8601 in the event's time zone. If the brief has "
-                                   "no submission deadline, do NOT assume one: leave every 'due' null, make next_action 'Find the "
-                                   "submission deadline: ask the organizers', and say so in warnings."),
+                                   "freeze time 45 minutes before the deadline. Times are ISO 8601 in the event's time zone; when the brief gives a "
+                                   "time zone, use it. If the brief has a deadline clock time but no date and the event date is known, "
+                                   "combine them. If the brief has no submission deadline at all, do NOT assume one: leave every 'due' "
+                                   "null, make next_action 'Find the submission deadline: ask the organizers', and say so in warnings. "
+                                   "The timeline must keep every agenda item, converted to ISO 8601 when the date and time zone are known."),
                         llm=make_llm(settings.FAST_MODEL, 4000), verbose=False, allow_delegation=False)
         desc = (f"Today is {_now_text()}.\nBrief:\n" + json.dumps(
             {k: brief.get(k) for k in ("name", "start", "end", "timezone", "agenda", "submission", "tracks", "required_tools")},
