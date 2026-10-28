@@ -232,24 +232,24 @@ function Actions({ id, one, deadline, agendaCount, after, onDone }: { id: string
         const r = await fetch("/api/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hackathonId: id, what }) });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || r.statusText);
-        setMsg(what === "discord" ? "Posted to Discord through One." : `Created ${d.created.length} calendar event${d.created.length === 1 ? "" : "s"} through One.`);
+        setMsg(what === "discord" ? "Posted to Discord through One." : `Created ${d.created.length} event${d.created.length === 1 ? "" : "s"} in your ${d.calendar || "Hackathonner"} calendar through One.`);
       } else if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
       else { const r = await api.toCalendar(id, what); setMsg(`Created ${r.created.length} calendar event${r.created.length === 1 ? "" : "s"}.`); }
       onDone(await api.get(id));
     } catch (e) { setMsg(String(e)); } finally { setBusy(""); }
   }
   const hint = viaConnect
-    ? (oc?.connected ? "Events are created on your own Google Calendar through One." : "Connect your own apps through One. Hackathonner only gets what you grant, and you can revoke it any time.")
+    ? (oc?.connected ? "Events go into a calendar named Hackathonner inside your Google account, created on first use. Your main calendar is never touched." : "Connect your own apps through One. Hackathonner only gets what you grant, and you can revoke it any time.")
     : (one?.error ? `One: ${one.error}` : !cal ? "Connect Google Calendar through One to enable these." : "Events are created through One on the primary calendar.");
   return (
     <div className="rounded border border-neutral-200 bg-white p-4 text-sm">
       {viaConnect && !oc?.connected && (
-        <div className="mb-3"><ConnectButton authorizeUrl="/api/one/authorize" logos={["google-calendar", "discord"]} connected={false} returnTo={typeof window !== "undefined" ? window.location.pathname : "/"} onSuccess={() => fetch("/api/actions").then(r => r.json()).then(setOc)} onError={(e: unknown) => setMsg(String(e))} /></div>
+        <div className="mb-3"><ConnectButton authorizeUrl="/api/one/authorize" logos={["google-calendar"]} connected={false} returnTo={typeof window !== "undefined" ? window.location.pathname : "/"} onSuccess={() => fetch("/api/actions").then(r => r.json()).then(setOc)} onError={(e: unknown) => setMsg(String(e))} /></div>
       )}
       <div className="flex flex-wrap gap-2">
         <button disabled={!cal || !deadline || !!busy} onClick={() => run("deadline")} className="rounded border border-neutral-900 px-3 py-1.5 disabled:opacity-40">{busy === "deadline" ? "Adding…" : "Deadline to Google Calendar"}</button>
         <button disabled={!cal || !deadline || agendaCount === 0 || !!busy} onClick={() => run("all")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "all" ? "Adding…" : `Deadline + ${agendaCount} agenda items`}</button>
-        <button disabled={!dis || !!busy} onClick={() => run("discord")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "discord" ? "Posting…" : "Post brief to Discord"}</button>
+        {dis && <button disabled={!!busy} onClick={() => run("discord")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "discord" ? "Posting…" : "Post brief to Discord"}</button>}
       </div>
       <p className="mt-2 text-xs text-neutral-500">{!deadline && cal ? "No dated deadline in the brief yet. Set one under Submit." : hint}</p>
       {msg && <p className="mt-2 text-xs">{msg}</p>}
