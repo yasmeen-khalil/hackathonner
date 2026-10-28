@@ -24,7 +24,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <>
       <div className="flex items-stretch border-b border-neutral-200 bg-white">
         <div className="flex-1"><DeadlineBar /></div>
-        {hasClerk && <div className="flex items-center border-l border-neutral-200 px-3"><SignedIn><UserButton /></SignedIn></div>}
+        {hasClerk && <div className="flex items-center border-l border-neutral-200 px-3"><Suspense fallback={null}><SignedIn><UserButton /></SignedIn></Suspense></div>}
       </div>
       <div className="flex min-h-[calc(100vh-2.5rem)]">
         <Suspense fallback={<div className="md:w-44" />}><Nav /></Suspense>
