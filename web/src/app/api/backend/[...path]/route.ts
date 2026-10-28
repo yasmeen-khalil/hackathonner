@@ -2,7 +2,6 @@
 // user id, and streams the response back (the brief arrives as server-sent events).
 import { NextRequest } from "next/server";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:8000";
