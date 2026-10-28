@@ -15,7 +15,7 @@ Every hackathon scatters its information. Today's event alone lived on a Luma pa
 1. **Brief.** Paste every link you have, or photograph the QR codes on the card, slide or poster and the links are read out of them. Hackathonner reads the pages and builds a dashboard for that hackathon: when and where, tracks, requirements and disqualifiers, the rubric with weights, every must-use tool explained in plain words, the submission link and what the form asks for, the agenda, prizes, Discord, and a list of what the pages did not say so you can ask the organizers.
 2. **Countdown.** The submission deadline is on every screen. Amber in the last two hours, red in the last thirty minutes.
 3. **Gameplan.** A checklist with times, built backwards from the deadline, plus the agenda as a timeline. Tick things off.
-4. **Actions.** One click puts the deadline and agenda on your own Google Calendar, or posts the brief to your Discord channel.
+4. **Actions.** One click puts the deadline and agenda on a Hackathonner calendar inside your own Google account (your main calendar is never touched), emails you the brief and gameplan through your own Gmail, or posts the brief to a Discord channel. All through One Connect, with a grant you control and can revoke.
 5. **Discover.** Live search for upcoming hackathons, ranked against your profile with an honest fit score and reason.
 6. **Debrief.** Mark the project submitted, then record placing, prizes, judge comments and notes as they arrive.
 
