@@ -112,7 +112,7 @@ class Patch(BaseModel):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "parasail_key": bool(settings.PARASAIL_API_KEY), "youcom_key": bool(settings.YDC_API_KEY), "db": storage.engine(), "secured": bool(BACKEND_SECRET)}
+    return {"ok": True, "parasail_key": bool(settings.PARASAIL_API_KEY), "youcom_key": bool(settings.YDC_API_KEY), "db": storage.engine(), "secured": bool(BACKEND_SECRET), "version": (settings.os.environ.get("RENDER_GIT_COMMIT") or "local")[:7]}
 
 
 @app.get("/api/hackathons")
