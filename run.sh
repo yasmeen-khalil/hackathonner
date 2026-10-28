@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 if [ ! -f .env ]; then echo "Copy .env.example to .env and fill in the keys first."; exit 1; fi
 set -a; . ./.env; set +a
 PY=${PYTHON:-python3.12}
+if ! command -v "$PY" >/dev/null 2>&1; then PY=python3; fi
 if [ ! -d backend/.venv ]; then "$PY" -m venv backend/.venv; fi
 backend/.venv/bin/python -m pip install -q -r backend/requirements.txt
 if [ ! -d web/node_modules ]; then (cd web && npm install --no-audit --no-fund); fi
