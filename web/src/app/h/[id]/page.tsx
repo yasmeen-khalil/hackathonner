@@ -1,0 +1,241 @@
+"use client";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { API, api, Hackathon, Brief, Plan, Tools, After, OneStatus, fmtDate } from "@/lib/api";
+import Countdown from "@/components/Countdown";
+
+const SECTIONS = ["overview", "rules", "tools", "plan", "submit", "after"] as const;
+type Section = typeof SECTIONS[number];
+
+function Skeleton({ lines = 4 }: { lines?: number }) {
+  return <div className="animate-pulse space-y-2">{Array.from({ length: lines }).map((_, i) => <div key={i} className="h-4 rounded bg-neutral-200" style={{ width: `${90 - i * 12}%` }} />)}</div>;
+}
+function H({ children }: { children: React.ReactNode }) { return <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-neutral-500 first:mt-0">{children}</h3>; }
+function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "red" | "green" }) {
+  const c = { neutral: "bg-neutral-100 text-neutral-700", red: "bg-red-100 text-red-800", green: "bg-emerald-100 text-emerald-800" }[tone];
+  return <span className={`inline-block rounded px-2 py-0.5 text-xs ${c}`}>{children}</span>;
+}
+
+export default function WorkspacePage() {
+  return <Suspense fallback={<Skeleton lines={6} />}><Workspace /></Suspense>;
+}
+
+function Workspace() {
+  const { id } = useParams<{ id: string }>();
+  const [h, setH] = useState<Hackathon | null>(null);
+  const [status, setStatus] = useState<string>("");
+  const [section, setSection] = useState<Section>("overview");
+  const [err, setErr] = useState("");
+  const [one, setOne] = useState<OneStatus | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const router = useRouter();
+  useEffect(() => { api.oneStatus().then(setOne).catch(() => setOne(null)); }, []);
+
+  useEffect(() => {
+    api.get(id).then(d => { setH(d); if (d.after?.submitted_at) setSection("after"); }).catch(e => setErr(String(e)));
+    const es = new EventSource(`${API}/api/hackathons/${id}/events`);
+    esRef.current = es;
+    es.onmessage = ev => {
+      const m = JSON.parse(ev.data);
+      if (m.type === "status") setStatus(m.message);
+      else if (m.type === "section") setH(prev => prev ? { ...prev, [m.name]: m.data, name: m.name === "brief" ? m.data.name : prev.name } : prev);
+      else if (m.type === "done") { setStatus(""); setH(prev => prev ? { ...prev, status: prev.status === "building" ? "ready" : prev.status } : prev); es.close(); }
+      else if (m.type === "error") { setErr(m.message); setStatus(""); es.close(); }
+    };
+    es.onerror = () => { /* the server closes the stream when done */ };
+    return () => es.close();
+  }, [id]);
+
+  const b = h?.brief as Brief | undefined, plan = h?.plan as Plan | undefined, tools = h?.tools as Tools | undefined;
+  const deadline = b?.submission?.deadline;
+
+  async function toggleCheck(i: number) {
+    if (!plan) return;
+    const next = { ...plan, checklist: plan.checklist.map((c, j) => j === i ? { ...c, done: !c.done } : c) };
+    setH(prev => prev ? { ...prev, plan: next } : prev);
+    await api.patch(id, { plan: next });
+  }
+  async function saveAfter(after: After) {
+    const d = await api.patch(id, { after, ...(after.submitted_at ? { status: "submitted" } : {}) });
+    setH(d);
+  }
+
+  const nav = useMemo(() => SECTIONS.filter(s => s !== "after" || h?.after?.submitted_at || h?.status === "ready"), [h]);
+  if (err && !h) return <p className="text-red-600">{err}</p>;
+  if (!h) return <Skeleton lines={6} />;
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      <header className="mb-4 border-b border-neutral-200 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">{b?.name || "Building the brief…"}</h1>
+            <p className="text-sm text-neutral-500">{[b?.organizer, fmtDate(b?.start, { weekday: "long", month: "long", day: "numeric" }), b?.venue?.city, b?.format?.replace("_", " ")].filter(Boolean).join(" · ")}</p>
+            <button onClick={async () => { if (confirm("Remove this hackathon and its brief?")) { await api.remove(id); router.push("/"); } }} className="mt-1 text-xs text-neutral-400 hover:text-red-600">Remove</button>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            {h.after?.submitted_at ? <Chip tone="green">Submitted {fmtDate(h.after.submitted_at)}</Chip> : <Countdown iso={deadline} label="Submissions close in" />}
+            {status && <span className="text-xs text-neutral-500">{status}</span>}
+            {err && <span className="text-xs text-red-600">{err}</span>}
+          </div>
+        </div>
+        <nav className="mt-4 flex gap-1 overflow-x-auto text-sm">
+          {nav.map(s => <button key={s} onClick={() => setSection(s)} className={`rounded px-3 py-1.5 capitalize ${section === s ? "bg-black text-white" : "text-neutral-600 hover:bg-neutral-200"}`}>{s}</button>)}
+        </nav>
+      </header>
+
+      {section === "overview" && (!b ? <Skeleton /> : (
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <H>When</H>
+            <p>{fmtDate(b.start, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}{b.end ? ` to ${fmtDate(b.end, { hour: "numeric", minute: "2-digit" })}` : ""} {b.timezone && <span className="text-neutral-500">({b.timezone})</span>}</p>
+            {b.submission?.deadline_text && <p className="mt-1 text-sm">Submission deadline as written: <span className="font-medium">{b.submission.deadline_text}</span></p>}
+            <H>Where</H>
+            <p>{b.format === "online" ? "Online" : [b.venue?.name, b.venue?.address, b.venue?.city].filter(Boolean).join(", ") || "Not stated"}</p>
+            {b.venue?.doors_time && <p className="text-sm text-neutral-500">Doors {b.venue.doors_time}</p>}
+            {(b.venue?.map_url || b.venue?.address) && <a className="text-sm underline" target="_blank" href={b.venue?.map_url || `https://maps.google.com/?q=${encodeURIComponent(b.venue?.address || "")}`}>Open in Maps</a>}
+            <H>Contacts</H>
+            {b.contacts?.length ? <ul className="list-disc pl-5 text-sm">{b.contacts.map((c, i) => <li key={i}>{c}</li>)}</ul> : <p className="text-sm text-neutral-500">None stated</p>}
+            {b.partners?.length > 0 && <><H>Partners</H><div className="flex flex-wrap gap-1">{b.partners.map(p => <Chip key={p}>{p}</Chip>)}</div></>}
+          </div>
+          <div>
+            <H>Links</H>
+            <ul className="space-y-1 text-sm">{b.links.map((l, i) => <li key={i}><a className="underline" target="_blank" href={l.url}>{l.label}</a> <span className="text-neutral-400">{l.kind}</span></li>)}</ul>
+            <H>Sources read</H>
+            <ul className="space-y-1 text-xs text-neutral-500">{h.sources?.sources?.map(s => <li key={s.url}>{s.url} · {Math.round(s.chars / 1000)}k chars</li>)}</ul>
+            {b.unknowns?.length > 0 && <><H>Not found on the pages, ask the organizers</H><ul className="list-disc pl-5 text-sm">{b.unknowns.map((u, i) => <li key={i}>{u}</li>)}</ul></>}
+          </div>
+        </div>
+      ))}
+
+      {section === "rules" && (!b ? <Skeleton /> : (
+        <div>
+          <H>Tracks</H>
+          <div className="grid gap-3 md:grid-cols-2">{b.tracks.map(t => (
+            <div key={t.name} className="rounded border border-neutral-200 bg-white p-4">
+              <div className="font-medium">{t.name}</div><p className="mt-1 text-sm">{t.summary}</p>
+              {t.requirements.length > 0 && <ul className="mt-2 list-disc pl-5 text-sm">{t.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul>}
+              {t.disqualifiers.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{t.disqualifiers.map((d, i) => <Chip key={i} tone="red">{d}</Chip>)}</div>}
+            </div>))}</div>
+          <H>Rubric</H>
+          {b.rubric.length ? <table className="w-full text-sm"><tbody>{b.rubric.map((r, i) => <tr key={i} className="border-t border-neutral-200"><td className="py-2 pr-3 font-medium">{r.criterion}</td><td className="py-2 pr-3 whitespace-nowrap text-neutral-600">{r.weight}</td><td className="py-2 text-neutral-600">{r.looks_for}</td></tr>)}</tbody></table> : <p className="text-sm text-neutral-500">No rubric found on the pages.</p>}
+          {b.prizes.length > 0 && <><H>Prizes</H><ul className="list-disc pl-5 text-sm">{b.prizes.map((p, i) => <li key={i}>{p}</li>)}</ul></>}
+        </div>
+      ))}
+
+      {section === "tools" && (() => { const list = tools?.tools || b?.required_tools; return !list ? <Skeleton /> : (
+        <div className="grid gap-3 md:grid-cols-2">{list.map(t => (
+          <div key={t.name} className="rounded border border-neutral-200 bg-white p-4">
+            <div className="flex items-center justify-between"><div className="font-medium">{t.name}</div>{t.free_for_event != null && <Chip tone={t.free_for_event ? "green" : "neutral"}>{t.free_for_event ? "free for the event" : "own account"}</Chip>}</div>
+            <p className="mt-1 text-sm">{t.what_it_is}</p>
+            <p className="mt-2 text-sm"><span className="text-neutral-500">Job here: </span>{t.job_here}</p>
+            {t.key_source && <p className="mt-2 text-sm"><span className="text-neutral-500">Key: </span>{t.key_source}</p>}
+            {t.docs_url && <a className="mt-2 inline-block text-sm underline" target="_blank" href={t.docs_url}>Docs</a>}
+          </div>))}{!tools && <p className="text-xs text-neutral-500 md:col-span-2">Explainer agent is still writing the plain-words versions…</p>}
+          <div className="rounded border border-dashed border-neutral-300 p-4 text-sm md:col-span-2">
+            <div className="font-medium">Your connections through One</div>
+            {!one ? <p className="text-neutral-500">Checking…</p> : one.error ? <p className="text-neutral-500">{one.error}</p> : (
+              <div className="mt-1 flex flex-wrap gap-2">{Object.entries(one.platforms).map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{k}{v.connected ? " connected" : " not connected"}</Chip>)}</div>)}
+          </div></div>
+      ); })()}
+
+      {section === "plan" && (!plan ? <Skeleton /> : (
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <div className="rounded border border-neutral-900 bg-white p-4"><div className="text-xs uppercase tracking-wide text-neutral-500">Next action</div><div className="mt-1 font-medium">{plan.next_action}</div></div>
+            <H>Put it on your calendar</H>
+            <Actions id={id} one={one} deadline={deadline} agendaCount={b?.agenda?.length || 0} after={h.after || {}} onDone={d => setH(d)} />
+            <H>Checklist</H>
+            <ul className="space-y-2">{plan.checklist.map((c, i) => (
+              <li key={i} className="flex items-start gap-3 rounded border border-neutral-200 bg-white p-3">
+                <input type="checkbox" checked={c.done} onChange={() => toggleCheck(i)} className="mt-1" />
+                <div className={c.done ? "line-through text-neutral-400" : ""}><div className="text-sm">{c.title}</div>{c.due && <div className="text-xs text-neutral-500">by {fmtDate(c.due)}</div>}</div>
+              </li>))}</ul>
+            {plan.warnings.length > 0 && <><H>Easy to break</H><ul className="list-disc pl-5 text-sm">{plan.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></>}
+          </div>
+          <div>
+            <H>Timeline</H>
+            <ol className="space-y-1 text-sm">{(plan.timeline.length ? plan.timeline : b?.agenda || []).map((a, i) => <li key={i} className="flex gap-3"><span className="w-28 shrink-0 font-mono text-neutral-500">{/^\d{4}-/.test(a.time) ? fmtDate(a.time, { hour: "numeric", minute: "2-digit" }) : a.time}</span><span>{a.title}</span></li>)}</ol>
+          </div>
+        </div>
+      ))}
+
+      {section === "submit" && (!b ? <Skeleton /> : (
+        <div className="max-w-2xl">
+          <div className="rounded border border-neutral-200 bg-white p-4">
+            <div className="flex items-center justify-between"><div className="font-medium">Submission</div><Countdown iso={deadline} compact /></div>
+            {b.submission.url && <a className="mt-2 block text-sm underline" target="_blank" href={b.submission.url}>{b.submission.url}</a>}
+            {b.submission.instructions && <p className="mt-2 text-sm">{b.submission.instructions}</p>}
+            {b.submission.fields.length > 0 && <><H>The form asks for</H><ul className="list-disc pl-5 text-sm">{b.submission.fields.map((f, i) => <li key={i}>{f}</li>)}</ul></>}
+          </div>
+          <SubmitForm after={h.after || {}} onSave={saveAfter} />
+        </div>
+      ))}
+
+      {section === "after" && <AfterForm after={h.after || {}} onSave={saveAfter} />}
+    </div>
+  );
+}
+
+function SubmitForm({ after, onSave }: { after: After; onSave: (a: After) => Promise<void> }) {
+  const [repo, setRepo] = useState(after.repo_url || ""), [video, setVideo] = useState(after.video_url || "");
+  if (after.submitted_at) return <p className="mt-4 text-sm text-emerald-700">Marked submitted {fmtDate(after.submitted_at)}. Fill in results under After.</p>;
+  return (
+    <div className="mt-4 rounded border border-neutral-200 bg-white p-4">
+      <H>Mark as submitted</H>
+      <label className="block text-sm">Repo URL<input value={repo} onChange={e => setRepo(e.target.value)} className="mt-1 w-full rounded border border-neutral-300 p-2 text-sm" /></label>
+      <label className="mt-2 block text-sm">Demo video URL<input value={video} onChange={e => setVideo(e.target.value)} className="mt-1 w-full rounded border border-neutral-300 p-2 text-sm" /></label>
+      <button onClick={() => onSave({ ...after, repo_url: repo, video_url: video, submitted_at: new Date().toISOString() })} className="mt-3 rounded bg-black px-4 py-2 text-sm text-white">Mark submitted</button>
+    </div>
+  );
+}
+
+function AfterForm({ after, onSave }: { after: After; onSave: (a: After) => Promise<void> }) {
+  const [a, setA] = useState<After>(after);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => setA(after), [after]);
+  const F = ({ k, label, rows }: { k: keyof After; label: string; rows?: number }) => (
+    <label className="block text-sm">{label}
+      {rows ? <textarea rows={rows} value={(a[k] as string) || ""} onChange={e => setA({ ...a, [k]: e.target.value })} className="mt-1 w-full rounded border border-neutral-300 p-2 text-sm" />
+        : <input value={(a[k] as string) || ""} onChange={e => setA({ ...a, [k]: e.target.value })} className="mt-1 w-full rounded border border-neutral-300 p-2 text-sm" />}
+    </label>
+  );
+  return (
+    <div className="max-w-2xl space-y-3">
+      {!after.submitted_at && <p className="text-sm text-neutral-500">Not marked submitted yet. You can still keep notes here.</p>}
+      <div className="grid gap-3 md:grid-cols-2"><F k="placing" label="Placing or result" /><F k="prizes" label="Prizes won" /></div>
+      <F k="judge_comments" label="Judge comments" rows={3} />
+      <F k="notes" label="Personal notes" rows={3} />
+      <F k="retro" label="What to do differently next time" rows={3} />
+      <button onClick={async () => { await onSave(a); setSaved(true); setTimeout(() => setSaved(false), 1500); }} className="rounded bg-black px-4 py-2 text-sm text-white">{saved ? "Saved" : "Save"}</button>
+    </div>
+  );
+}
+
+function Actions({ id, one, deadline, agendaCount, after, onDone }: { id: string; one: OneStatus | null; deadline?: string | null; agendaCount: number; after: After; onDone: (d: Hackathon) => void }) {
+  const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState("");
+  const cal = one?.platforms?.["google-calendar"]?.connected;
+  const dis = one?.platforms?.["discord"]?.connected;
+  async function run(what: "deadline" | "all" | "discord") {
+    setBusy(what); setMsg("");
+    try {
+      if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
+      else { const r = await api.toCalendar(id, what); setMsg(`Created ${r.created.length} calendar event${r.created.length === 1 ? "" : "s"}.`); onDone(await api.get(id)); }
+    } catch (e) { setMsg(String(e)); } finally { setBusy(""); }
+  }
+  return (
+    <div className="rounded border border-neutral-200 bg-white p-4 text-sm">
+      <div className="flex flex-wrap gap-2">
+        <button disabled={!cal || !deadline || !!busy} onClick={() => run("deadline")} className="rounded border border-neutral-900 px-3 py-1.5 disabled:opacity-40">{busy === "deadline" ? "Adding…" : "Deadline to Google Calendar"}</button>
+        <button disabled={!cal || !deadline || agendaCount === 0 || !!busy} onClick={() => run("all")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "all" ? "Adding…" : `Deadline + ${agendaCount} agenda items`}</button>
+        <button disabled={!dis || !!busy} onClick={() => run("discord")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "discord" ? "Posting…" : "Post brief to Discord"}</button>
+      </div>
+      <p className="mt-2 text-xs text-neutral-500">
+        {one?.error ? `One: ${one.error}` : !cal ? "Connect Google Calendar through One (one add google-calendar) to enable these." : !deadline ? "No dated deadline in the brief yet." : "Events are created through One on your primary calendar."}
+      </p>
+      {msg && <p className="mt-2 text-xs">{msg}</p>}
+      {after.calendar_events?.length ? <ul className="mt-2 space-y-1 text-xs">{after.calendar_events.map((e, i) => <li key={i}>{e.summary} · {fmtDate(e.start)} {e.link && <a className="underline" target="_blank" href={e.link}>open</a>}</li>)}</ul> : null}
+    </div>
+  );
+}

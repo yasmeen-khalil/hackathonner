@@ -1,0 +1,6 @@
+crewai==1.15.2
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+sse-starlette
