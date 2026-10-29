@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Hackathonner", description: "Paste a
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-neutral-50 text-neutral-900 antialiased">
+      <body className="min-h-screen bg-white text-[#1A1712] antialiased">
         <Shell>{children}</Shell>
       </body>
     </html>
@@ -24,11 +24,11 @@ function Shell({ children }: { children: React.ReactNode }) {
     <>
       <div className="flex items-stretch border-b border-neutral-200 bg-white">
         <div className="flex-1"><DeadlineBar /></div>
-        {hasClerk && <div className="flex items-center border-l border-neutral-200 px-3"><Suspense fallback={null}><Show when="signed-in"><UserButton /></Show></Suspense></div>}
+        {hasClerk && <div className="flex items-center px-3"><Suspense fallback={null}><Show when="signed-in"><UserButton /></Show></Suspense></div>}
       </div>
-      <div className="flex min-h-[calc(100vh-2.5rem)]">
+      <div className="flex min-h-[calc(100vh-44px)]">
         <Suspense fallback={<div className="md:w-44" />}><Nav /></Suspense>
-        <main className="flex-1 px-4 pb-20 pt-6 md:px-8 md:pb-8">{children}</main>
+        <main className="flex-1 px-4 pb-24 pt-6 md:px-10 md:pb-10">{children}</main>
       </div>
     </>
   );

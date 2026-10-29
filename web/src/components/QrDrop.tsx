@@ -36,10 +36,10 @@ export default function QrDrop({ onLinks }: { onLinks: (links: string[], notes: 
   }
 
   return (
-    <div className="rounded border border-dashed border-neutral-300 p-3 text-sm">
+    <div className="hk-block p-3 text-sm">
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => input.current?.click()} disabled={busy} className="rounded border border-neutral-900 px-3 py-1.5 disabled:opacity-40">{busy ? "Reading…" : "Add from a QR code photo"}</button>
-        <span className="text-xs text-neutral-500">Snap the card on your table, a slide, or a poster. The links inside the codes are added above.</span>
+        <button type="button" onClick={() => input.current?.click()} disabled={busy} className="rounded-full bg-[#EC6699] px-4 py-1.5 font-bold text-[#1A1712] disabled:opacity-40">{busy ? "Reading…" : "Add from a QR code photo"}</button>
+        <span className="text-xs text-[#6B6458]">Snap the card on your table, a slide, or a poster. The links inside the codes are added above.</span>
       </div>
       <input ref={input} type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={e => decode(e.target.files)} />
     </div>

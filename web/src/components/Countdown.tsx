@@ -16,19 +16,18 @@ export function urgency(ms: number | null): "none" | "calm" | "amber" | "red" | 
 export function fmtLeft(ms: number) {
   if (ms <= 0) return "closed";
   const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(sec).padStart(2, "0")}s`;
-  return `${m}m ${String(sec).padStart(2, "0")}s`;
+  const hms = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return d > 0 ? `${d}d ${hms}` : hms;
 }
-const tone = { none: "bg-neutral-200 text-neutral-700", calm: "bg-neutral-900 text-white", amber: "bg-amber-500 text-black", red: "bg-red-600 text-white", past: "bg-neutral-300 text-neutral-600" };
+const tone = { none: "bg-[#E4F2E7] text-[#1A1712]", calm: "bg-[#EC6699] text-[#1A1712]", amber: "bg-[#F59100] text-[#1A1712]", red: "bg-[#C8160C] text-white", past: "bg-[#E4F2E7] text-[#6B6458]" };
 
 export default function Countdown({ iso, label, compact }: { iso?: string | null; label?: string; compact?: boolean }) {
   const [ms, setMs] = useState<number | null>(msLeft(iso));
   useEffect(() => { const t = setInterval(() => setMs(msLeft(iso)), 1000); return () => clearInterval(t); }, [iso]);
   const u = urgency(ms);
-  if (ms === null) return <span className="text-sm text-neutral-500">{label ? `${label}: ` : ""}no deadline found</span>;
+  if (ms === null) return <span className="text-sm text-[#6B6458]">{label ? `${label}: ` : ""}no deadline found</span>;
   return (
-    <span className={`inline-flex items-baseline gap-2 rounded px-2 py-1 ${tone[u]} ${compact ? "text-sm" : "text-base"}`}>
+    <span className={`inline-flex items-baseline gap-2 rounded-full px-3 py-1 font-bold transition-colors duration-[360ms] ${tone[u]} ${compact ? "text-sm" : "text-base"}`}>
       {label && <span className="opacity-80">{label}</span>}
       <span className="font-mono tabular-nums font-semibold">{fmtLeft(ms)}</span>
     </span>

@@ -1,26 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #1A1712; --muted: #6B6458; --pink: #EC6699; --green: #E4F2E7; --amber: #F59100; --red: #C8160C; --page: #FFFFFF;
+  --background: var(--page); --foreground: var(--ink);
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+html, body { background: var(--page); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+button, input, textarea, select { font-family: inherit; }
+button { border-radius: 999px; transition: transform 120ms ease, background-color 160ms ease; }
+button:active { transform: scale(0.98); }
+input, textarea { border-radius: 12px; }
+a { text-underline-offset: 3px; }
+.hk-block { background: var(--green); border-radius: 12px; }
+.hk-card { background: #fff; border-radius: 16px; box-shadow: inset 0 0 0 2px var(--pink); }
+.hk-rise { animation: hk-rise 280ms ease both; }
+@keyframes hk-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .hk-rise { animation: none; } button:active { transform: none; } }

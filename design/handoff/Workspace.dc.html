@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0;background:#FFFFFF}a{color:#1A1712}a:hover{color:#5A63E0}</style></helmet>
+<div ref="{{ root }}" data-screen-label="Workspace" style="min-height:100vh;background:#FFFFFF;color:#1A1712;font-family:Arial,Helvetica,sans-serif">
+  <div role="region" aria-label="Next deadline" style="position:sticky;top:0;z-index:10;background:{{ barBg }};color:{{ barFg }};transition:background-color 360ms cubic-bezier(.2,.7,.2,1)">
+    <div style="display:flex;align-items:center;gap:16px;height:44px;padding:0 {{ padX }}">
+      <span style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">{{ phase }}</span>
+      <span style="flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ barText }}</span>
+      <span aria-label="{{ aria }}" style="font-size:20px;font-weight:700;font-variant-numeric:tabular-nums">{{ clock }}</span>
+    </div>
+  </div>
+
+  <header style="display:flex;align-items:center;gap:24px;height:64px;padding:0 {{ padX }}">
+    <a href="#" aria-label="Hackathonner home" style="font-size:20px;line-height:1;font-weight:700;letter-spacing:-.04em;color:#1A1712;text-decoration:none;margin-right:auto">hackathonner<span style="color:#EC6699">.</span></a>
+    <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+      <nav aria-label="Main" style="display:flex;align-items:center;gap:28px;font-size:15px">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4"><a href="#" aria-current="{{ n.cur }}" style="padding:8px 0;text-decoration:none;color:{{ n.fg }};box-shadow:{{ n.line }}">{{ n.label }}</a></sc-for>
+      </nav>
+    </sc-if>
+    <a href="#" style="display:inline-flex;align-items:center;height:40px;padding:0 20px;border-radius:999px;background:#EC6699;color:#1A1712;font-size:14px;font-weight:700;text-decoration:none" style-hover="background:#F07EAA" style-active="transform:scale(.98)">Add a hackathon</a>
+  </header>
+
+  <main style="display:grid;grid-template-columns:{{ cols }};gap:{{ gap }};padding:{{ mainPad }};max-width:1280px;box-sizing:border-box">
+    <aside style="min-width:0;display:flex;flex-direction:column;gap:28px;align-self:start;position:{{ asidePos }};top:132px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+                <h1 style="margin:0;font-size:{{ nameSize }};line-height:.98;font-weight:400;letter-spacing:-.035em;text-wrap:balance">Harbor Hack 2026</h1>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:20px;border-radius:16px;background:#FFFFFF;box-shadow:inset 0 0 0 2px #EC6699;background:#FFFFFF">
+        <span style="font-size:12px;line-height:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B6458">Do next</span>
+        <span style="font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.015em">{{ nextTitle }}</span>
+        <span style="font-size:14px;line-height:20px;color:#6B6458">{{ nextWhen }}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+          <button type="button" onClick="{{ nextDone }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 18px;border:0;border-radius:999px;font:700 14px Arial,Helvetica,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;background:#EC6699;color:#1A1712" style-hover="background:#F07EAA" style-active="transform:scale(.98)">Mark done</button>
+          <button type="button" onClick="{{ goGameplan }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 18px;border:0;border-radius:999px;font:700 14px Arial,Helvetica,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;background:#E4F2E7;color:#1A1712" style-hover="background:#D5EADA">Gameplan</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button type="button" onClick="{{ goSubmit }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 18px;border:0;border-radius:999px;font:700 14px Arial,Helvetica,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;background:#1A1712;color:#F4EFE6" style-hover="background:#3A352C">{{ submitLabel }}</button>
+      </div>
+      <dl style="margin:0;display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:22px">
+        <sc-for list="{{ facts }}" as="f" hint-placeholder-count="5">
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 14px;border-radius:10px;background:#E4F2E7"><dt style="color:#6B6458">{{ f.k }}</dt><sc-if value="{{ f.link }}"><dd style="margin:0;text-align:right"><a href="#" style="font-weight:700;color:#1A1712;text-decoration:underline;text-decoration-color:#EC6699;text-decoration-thickness:2px;text-underline-offset:3px">{{ f.v }}</a></dd></sc-if><sc-if value="{{ f.plain }}"><dd style="margin:0;text-align:right;font-weight:700">{{ f.v }}</dd></sc-if></div>
+        </sc-for>
+      </dl>
+    </aside>
+
+    <section style="min-width:0;display:flex;flex-direction:column;gap:28px">
+      <nav aria-label="Sections" style="display:flex;gap:{{ tabGap }};overflow-x:auto">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6"><button type="button" onClick="{{ t.go }}" aria-current="{{ t.cur }}" style="flex:none;padding:0 0 12px;border:0;background:transparent;font:{{ t.weight }} 15px Arial,Helvetica,sans-serif;color:{{ t.fg }};box-shadow:{{ t.line }};cursor:pointer">{{ t.label }}</button></sc-for>
+      </nav>
+      <sc-if value="{{ hasAnswer }}" hint-placeholder-val="{{ false }}"><h2 ref="{{ answerRef }}" style="margin:0;font-size:{{ answerSize }};line-height:1.15;font-weight:400;letter-spacing:-.02em;text-wrap:balance">{{ answer }}</h2></sc-if>
+      <div ref="{{ listRef }}" style="display:flex;flex-direction:column;gap:6px">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+          <sc-if value="{{ r.head }}"><h3 style="margin:0;padding:{{ r.headPad }};font-size:13px;line-height:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B6458">{{ r.k }}</h3></sc-if>
+          <sc-if value="{{ r.item }}"><div style="display:grid;grid-template-columns:{{ rowCols }};gap:4px 20px;align-items:baseline;padding:14px 18px;border-radius:12px;background:#E4F2E7">
+            <span style="display:flex;align-items:baseline;gap:10px;font-size:16px;line-height:24px;font-weight:700;color:{{ r.fg }}"><sc-if value="{{ r.hasMark }}"><span aria-hidden="true" style="flex:none;width:10px;height:10px;border-radius:50%;background:{{ r.mark }};box-shadow:{{ r.ring }};transform:translateY(-1px)"></span></sc-if>{{ r.k }}</span>
+            <span style="font-size:15px;line-height:24px;color:{{ r.vfg }}">{{ r.v }}</span>
+            <sc-if value="{{ r.btn }}"><button type="button" style="justify-self:end;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 18px;border:0;border-radius:999px;font:700 14px Arial,Helvetica,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;height:34px;padding:0 14px;font-size:13px;background:{{ r.btnBg }};color:#1A1712" style-hover="background:#FFFFFF">{{ r.m }}</button></sc-if><sc-if value="{{ r.txt }}"><span style="font-size:14px;line-height:24px;color:#6B6458;text-align:right;white-space:nowrap">{{ r.m }}</span></sc-if>
+          </div></sc-if>
+        </sc-for>
+      </div>
+      <sc-if value="{{ hasAction }}"><div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center"><button type="button" onClick="{{ act }}" style="height:44px;padding:0 24px;border:0;border-radius:999px;background:#EC6699;color:#1A1712;font:700 15px Arial,Helvetica,sans-serif;cursor:pointer" style-hover="background:#F07EAA" style-active="transform:scale(.98)">{{ actLabel }}</button><span style="font-size:14px;color:#6B6458">{{ actNote }}</span></div></sc-if>
+    </section>
+  </main>
+
+  <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}">
+    <nav aria-label="Main" style="position:sticky;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);height:56px;background:#FFFFFF;border-top:1px solid #DDD5C8">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4"><a href="#" aria-current="{{ n.cur }}" style="display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:{{ n.weight }};text-decoration:none;color:{{ n.fg }}">{{ n.label }}</a></sc-for>
+    </nav>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;basics&quot;,&quot;rules&quot;,&quot;toolkit&quot;,&quot;gameplan&quot;,&quot;submit&quot;,&quot;debrief&quot;],&quot;default&quot;:&quot;basics&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;barState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;calm&quot;,&quot;amber&quot;,&quot;red&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;submitted&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;phone&quot;,&quot;desktop&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;minutesLeft&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1302,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  static ORDER = ['basics', 'rules', 'toolkit', 'gameplan', 'submit', 'debrief'];
+  root = React.createRef(); answerRef = React.createRef(); listRef = React.createRef();
+  state = { w: 1280, now: Date.now(), section: this.props.section || 'basics', submitted: this.props.submitted === true || this.props.submitted === 'true', done: [true, false, false, false, false, false] };
+  componentDidMount() {
+    this.end = Date.now() + Number(this.props.minutesLeft ?? 1302) * 60000 - 9000;
+    this.clk = setInterval(() => this.setState({ now: Date.now() }), 1000);
+    const el = this.root.current;
+    if (el && window.ResizeObserver) { this.ro = new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (Math.abs(w - this.state.w) > 2) requestAnimationFrame(() => this.setState({ w })); }); this.ro.observe(el); const w0 = Math.round(el.getBoundingClientRect().width); if (w0) this.setState({ w: w0 }); }
+  }
+  componentWillUnmount() { clearInterval(this.clk); this.ro && this.ro.disconnect(); }
+  componentDidUpdate() {
+    if (this._last && this._last !== this.state.section && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+      [this.answerRef.current, this.listRef.current].forEach((el, i) => el && el.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 280, delay: i * 60, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' }));
+    this._last = this.state.section;
+  }
+  renderVals() {
+    const p = this.props, s = this.state;
+    const layout = p.layout === 'phone' || p.layout === 'desktop' ? p.layout : (s.w < 820 ? 'phone' : 'desktop');
+    const phone = layout === 'phone', mid = !phone && s.w < 1120;
+    const left = Math.max(0, (this.end || Date.now() + 1302 * 60000) - s.now), sec = Math.floor(left / 1000), pad = n => String(n).padStart(2, '0');
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), ss = sec % 60;
+    const tone = p.barState && p.barState !== 'auto' ? p.barState : (left <= 1800000 ? 'red' : left <= 7200000 ? 'amber' : 'calm');
+    const bar = { calm: ['#EC6699', '#1A1712'], amber: ['#F59100', '#1A1712'], red: ['#C8160C', '#FFFFFF'] }[tone];
+    const ink = '#1A1712', mute = '#6B6458', peri = '#8F9BFF';
+    const nav = [['Home', false], ['Discover', false], ['Brief', true], ['Profile', false]].map(([label, on]) => ({ label, cur: on ? 'page' : undefined, fg: on ? ink : mute, weight: on ? 700 : 400, line: on ? `inset 0 -2px 0 ${ink}` : 'none' }));
+    const names = { basics: 'Overview', rules: 'Rules', toolkit: 'Toolkit', gameplan: 'Gameplan', submit: 'Submit', debrief: 'Debrief' };
+    const tabs = Component.ORDER.map(k => { const on = k === s.section; return { label: names[k], go: () => this.setState({ section: k }), cur: on ? 'page' : undefined, fg: on ? ink : mute, weight: on ? 700 : 400, line: on ? 'inset 0 -2px 0 #EC6699' : 'none' }; });
+    let first = true;
+    const head = k => { const pad = first ? '0 0 6px' : '26px 0 6px'; first = false; return { head: true, item: false, k, headPad: pad, v: '', m: '', fg: ink, vfg: ink, hasMark: false, mark: 'transparent', ring: 'none' }; };
+    const ACT = { 'Open map': 1, 'Discord': 1, 'Open': 1, 'Copy': 1, 'Correct it': 1, 'Needs a key': 'Add key', 'To do': 'Do it', 'Missing': 'Record', 'Connect': 1 };
+    const row = (k, v, mm, o = {}) => ({ head: false, item: true, headPad: '0', k, v, m: typeof ACT[mm] === 'string' ? ACT[mm] : (mm || ''), btn: !!ACT[mm], txt: !!mm && !ACT[mm], btnBg: ACT[mm] === 1 ? '#FFFFFF' : '#EC6699', fg: o.fg || ink, vfg: o.vfg || ink, hasMark: !!o.mark, mark: o.mark || 'transparent', ring: o.ring || 'none' });
+    const dot = { done: { mark: ink }, open: { mark: 'transparent', ring: `inset 0 0 0 1.5px ${ink}` }, next: { mark: '#EC6699' }, warn: { mark: '#C8160C' }, peri: { mark: peri } };
+    const sub = s.submitted;
+    const S = {
+      basics: ['', [
+        row('Address', 'Pier 57, 25 11th Ave, New York. Hall B, enter from the park side.', 'Open map'),
+        row('Build window', 'Sat 11:00 to Sun 12:00, Eastern time', '25 h'),
+        row('Format', 'In person, teams of 1 to 4. Bring a laptop and photo ID.'),
+        row('Organizer', 'Dana Ito', '@dana.ito'), row('Help', '#help on Discord, or the desk at the Hall B entrance', 'Discord'),
+        row('Sources', 'harborhack.dev · devpost.com · lu.ma · discord.gg · notion.site', 'Open')]],
+      rules: ['', [
+        head('Tracks'),
+        row('Climate & Coasts', 'Tools that help coastal neighborhoods plan for flooding.', 'Your track', dot.next),
+        row('Civic Data', 'Make a public dataset useful to someone on a deadline.', '$2,000'),
+        row('Open Tools', 'Developer tools released under an open license.', '$2,000'),
+        head('Requirements'),
+        row('Teams of 1 to 4', '', 'Met', dot.done), row('Code written after Sat 11:00', '', 'Met', dot.done), row('Public GitHub repo', '', 'Met', dot.done),
+        row('Video under 2 minutes', '', 'To do', dot.open), row('Uses one Toolkit tool', '', 'Met', dot.done), row('Submitted by Sun 12:00', '', 'To do', dot.open),
+        head('Disqualified if'),
+        row('Commits before Sat 11:00', '', '', { ...dot.warn, fg: '#C8160C' }), row('No demo video', '', '', { ...dot.warn, fg: '#C8160C' }),
+        head('Rubric'),
+        row('Impact', 'Would people in your track use it next week?', '30%'), row('Technical depth', 'Does it work, and is the hard part real?', '25%'),
+        row('Toolkit use', 'A required tool doing real work.', '20%'), row('Clarity', 'Understandable in 30 seconds.', '15%'), row('Presentation', 'Video and README tell one story.', '10%')]],
+      toolkit: ['', [
+        row('Claude API', 'Turns raw tide alerts into plain warnings for each block.', 'Connected', dot.done),
+        row('NOAA Tides', 'Free water-level feed. The data the Climate track expects.', 'No key needed', dot.done),
+        row('Supabase', 'Stores readings and alert sign-ups. Key: Project settings → API.', 'Needs a key', dot.next),
+        row('Vercel', 'Hosts the demo link the judges will open.', 'Connected', dot.done)]],
+      gameplan: ['', [head('Checklist'),
+        ...[['Repo and team', 'Sat 11:30'], ['Core build: tide feed and alert map', 'Sat 22:00'], ['Host it on Vercel', 'Sun 08:00'], ['README with setup and screenshots', 'Sun 09:30'], ['Record the 2-minute video', 'Sun 10:30'], ['Submit on Devpost', 'Sun 11:30']]
+          .map(([t, time], i) => row(t, '', time, s.done[i] ? { ...dot.done, fg: mute } : i === s.done.indexOf(false) ? dot.next : dot.open)),
+        head('Agenda'), row('Now', 'Mentor round 1 · Room 2 · until 15:00', '14:00', dot.peri)]],
+      submit: [sub ? 'Submitted Sun 11:42.' : '', [
+        row('Project', 'Tideline', 'Copy'), row('Tagline', 'Flood warnings your block can actually read', 'Copy'),
+        row('What it does', 'Watches nearby tide stations and sends a short warning when your block may flood in the next 12 hours.', 'Copy'),
+        row('Track', 'Climate & Coasts', 'Copy'), row('Repository', 'github.com/team-tideline/tideline', 'Copy'),
+        row('Demo video', 'Not recorded yet. Gameplan has it due Sun 10:30.', 'Missing', { ...dot.next, vfg: mute }),
+        row('Deadline', 'Sun 15 Nov, 12:00 Eastern, from the Devpost rules', 'Correct it')]],
+      debrief: sub ? ['2nd place in Climate & Coasts.', [
+        row('Prizes', '$1,500 for the team and $500 in API credits'), row('Judge', '"The warning copy was the clearest thing we saw all weekend."', 'Climate'),
+        row('Judge', '"Show where the data comes from on the first screen."', 'Technical'),
+        head('Retrospective'), row('Keep', 'Writing the warning copy before the code.'), row('Change', 'Start the video at 08:00, not 10:00.'), row('Try', 'One person on demo prep from Sunday morning.')]]
+        : ['Opens after you submit.', []]
+    };
+    const [answer, rows] = S[s.section];
+    const GP = [['Repo and team', 'Sat 11:30'], ['Finish the core build', 'Sat 22:00 · in 7 h 42 min'], ['Host it on Vercel', 'Sun 08:00'], ['Write the README', 'Sun 09:30'], ['Record the 2-minute video', 'Sun 10:30'], ['Submit on Devpost', 'Sun 11:30']];
+    const ni = s.done.indexOf(false), nx = ni < 0 ? ['All done', 'Nothing left on the Gameplan'] : GP[ni];
+    const act = s.section === 'submit' && !sub ? ['Mark submitted', '', () => this.setState({ submitted: true, section: 'debrief' })]
+      : s.section === 'gameplan' ? ['Check off next', '', () => this.setState(st => { const d = st.done.slice(); const i = d.indexOf(false); if (i >= 0) d[i] = true; return { done: d }; })]
+      : s.section === 'debrief' && !sub ? ['Go to Submit', '', () => this.setState({ section: 'submit' })] : null;
+    return {
+      root: this.root, answerRef: this.answerRef, listRef: this.listRef,
+      isPhone: phone, isDesktop: !phone, nav, tabs, answer, rows, hasAnswer: !!answer, nextTitle: nx[0], nextWhen: 'Due ' + nx[1], nextDone: () => this.setState(st => { const d = st.done.slice(); const i = d.indexOf(false); if (i >= 0) d[i] = true; return { done: d }; }), goGameplan: () => this.setState({ section: 'gameplan' }), goSubmit: () => this.setState({ section: 'submit' }), submitLabel: sub ? 'Submitted' : 'Submit · 6 of 7 ready',
+      barBg: bar[0], barFg: bar[1], phase: 'Building', clock: pad(h) + ':' + pad(m) + ':' + pad(ss), aria: h + ' hours ' + m + ' minutes left',
+      barText: phone ? 'until submissions close' : 'Harbor Hack 2026 · submissions close Sun 15 Nov, 12:00 ET',
+      subLabel: sub ? 'Submitted' : 'Not submitted',
+      facts: [{ k: 'Dates', v: 'Sat 14 – Sun 15 Nov' }, { k: 'Venue', v: 'Pier 57, 25 11th Ave', link: true }, { k: 'Track', v: 'Climate & Coasts' }, { k: 'Team', v: 'Tideline, 3 people' }].map(f => ({ ...f, link: !!f.link, plain: !f.link })),
+      hasAction: !!act, actLabel: act ? act[0] : '', actNote: act ? act[1] : '', act: act ? act[2] : null,
+      padX: phone ? '16px' : '40px', mainPad: phone ? '24px 16px 40px' : '48px 40px 80px', gap: phone ? '32px' : mid ? '40px' : '72px',
+      cols: phone ? 'minmax(0,1fr)' : mid ? '280px minmax(0,1fr)' : '340px minmax(0,1fr)', asidePos: phone ? 'static' : 'sticky',
+      nameSize: phone ? '44px' : mid ? '52px' : '64px', answerSize: phone ? '24px' : '32px', tabGap: phone || mid ? '20px' : '28px',
+      rowCols: phone ? 'minmax(0,1fr) auto' : mid ? '136px minmax(0,1fr) auto' : '180px minmax(0,1fr) auto'
+    };
+  }
+}
+</script>
+</body>
+</html>

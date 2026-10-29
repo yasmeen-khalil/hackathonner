@@ -1,0 +1,20 @@
+:root {
+  --hk-bg: #FFFFFF;
+  --hk-ink: #1A1712;
+  --hk-muted: #6B6458;
+  --hk-brand: #EC6699;
+  --hk-brand-hover: #F07EAA;
+  --hk-surface: #E4F2E7;
+  --hk-surface-hover: #D5EADA;
+  --hk-accent: #8F9BFF;
+  --hk-rule: #DDD5C8;
+  --hk-deadline-calm: #EC6699;
+  --hk-deadline-amber: #F59100;
+  --hk-deadline-red: #C8160C;
+  --hk-font: Arial, Helvetica, sans-serif;
+  --hk-radius-pill: 999px;
+  --hk-radius-card: 16px;
+  --hk-radius-row: 12px;
+  --hk-radius-fact: 10px;
+  --hk-ease: cubic-bezier(.2,.7,.2,1);
+}
