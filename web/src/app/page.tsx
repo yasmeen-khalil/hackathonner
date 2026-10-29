@@ -5,15 +5,17 @@ import { api, HackathonRow, fmtDate } from "@/lib/api";
 import Countdown from "@/components/Countdown";
 import FromCalendar from "@/components/FromCalendar";
 
-function Card({ h }: { h: HackathonRow }) {
+function Card({ h, onRemove }: { h: HackathonRow; onRemove: (id: string) => void }) {
   return (
+    <div className="relative">
+    <button onClick={() => { if (confirm(`Remove "${h.name}" and its brief?`)) onRemove(h.id); }} className="absolute right-3 top-3 z-10 rounded-full bg-white px-2 py-0.5 text-xs text-[#6B6458] hover:text-[#C8160C]" aria-label="Remove">Remove</button>
     <Link href={`/h/${h.id}`} className="block hk-block p-4 hover:brightness-[0.98]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-medium">{h.name}</div>
           <div className="text-sm text-[#6B6458]">{[fmtDate(h.start, { weekday: "short", month: "short", day: "numeric" }), h.city, h.format?.replace("_", " ")].filter(Boolean).join(" · ")}</div>
         </div>
-        <div className="flex flex-col items-end gap-1 text-xs">
+        <div className="mr-16 flex flex-col items-end gap-1 text-xs">
           <span className="rounded bg-[#E4F2E7] px-2 py-0.5 uppercase tracking-wide text-[#6B6458]">{h.status}</span>
           {h.after?.placing && <span className="rounded bg-[#E4F2E7] px-2 py-0.5 text-[#1A1712]">{h.after.placing}</span>}
         </div>
@@ -21,6 +23,7 @@ function Card({ h }: { h: HackathonRow }) {
       {h.deadline && h.status !== "submitted" && <div className="mt-3"><Countdown iso={h.deadline} label="Submissions close in" compact /></div>}
       {h.error && <div className="mt-2 text-sm text-[#C8160C]">{h.error}</div>}
     </Link>
+    </div>
   );
 }
 
@@ -34,8 +37,9 @@ export default function Home() {
   const isPast = (h: HackathonRow) => h.status === "submitted" || (h.end ? new Date(h.end).getTime() < now : h.deadline ? new Date(h.deadline).getTime() < now : false);
   const isToday = (h: HackathonRow) => !isPast(h) && h.start && new Date(h.start).getTime() <= now;
   const today = rows.filter(isToday), upcoming = rows.filter(h => !isPast(h) && !isToday(h)), past = rows.filter(isPast);
+  const remove = async (id: string) => { await api.remove(id); setRows(r => (r || []).filter(x => x.id !== id)); };
   const Group = ({ title, items }: { title: string; items: HackathonRow[] }) => items.length ? (
-    <section className="mb-8"><h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6B6458]">{title}</h2><div className="grid gap-3 md:grid-cols-2">{items.map(h => <Card key={h.id} h={h} />)}</div></section>
+    <section className="mb-8"><h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-[#6B6458]">{title}</h2><div className="grid gap-3 md:grid-cols-2">{items.map(h => <Card key={h.id} h={h} onRemove={remove} />)}</div></section>
   ) : null;
   return (
     <div className="mx-auto max-w-4xl">

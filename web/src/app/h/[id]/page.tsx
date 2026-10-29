@@ -178,14 +178,15 @@ function Workspace() {
 }
 
 function SubmitForm({ after, onSave }: { after: After; onSave: (a: After) => Promise<void> }) {
-  const [repo, setRepo] = useState(after.repo_url || ""), [video, setVideo] = useState(after.video_url || "");
+  const [repo, setRepo] = useState(after.repo_url || ""), [video, setVideo] = useState(after.video_url || ""), [team, setTeam] = useState(after.team_handle || "");
   if (after.submitted_at) return <p className="mt-4 text-sm text-[#1A1712]">Marked submitted {fmtDate(after.submitted_at)}. Fill in results under Debrief.</p>;
   return (
     <div className="mt-4 hk-block p-4">
       <H>Mark as submitted</H>
-      <label className="block text-sm">Repo URL<input value={repo} onChange={e => setRepo(e.target.value)} className="mt-1 w-full rounded-xl bg-[#E4F2E7] p-2 text-sm outline-none focus:ring-2 focus:ring-[#EC6699]" /></label>
+      <label className="block text-sm">Team handle for this hackathon<input value={team} onChange={e => setTeam(e.target.value)} placeholder="lowercase, numbers, dashes" className="mt-1 w-full rounded-xl bg-[#E4F2E7] p-2 text-sm outline-none focus:ring-2 focus:ring-[#EC6699]" /></label>
+      <label className="mt-2 block text-sm">Repo URL<input value={repo} onChange={e => setRepo(e.target.value)} className="mt-1 w-full rounded-xl bg-[#E4F2E7] p-2 text-sm outline-none focus:ring-2 focus:ring-[#EC6699]" /></label>
       <label className="mt-2 block text-sm">Demo video URL<input value={video} onChange={e => setVideo(e.target.value)} className="mt-1 w-full rounded-xl bg-[#E4F2E7] p-2 text-sm outline-none focus:ring-2 focus:ring-[#EC6699]" /></label>
-      <button onClick={() => onSave({ ...after, repo_url: repo, video_url: video, submitted_at: new Date().toISOString() })} className="mt-3 rounded-full bg-[#EC6699] px-5 py-2 text-sm font-bold text-[#1A1712]">Mark submitted</button>
+      <button onClick={() => onSave({ ...after, team_handle: team, repo_url: repo, video_url: video, submitted_at: new Date().toISOString() })} className="mt-3 rounded-full bg-[#EC6699] px-5 py-2 text-sm font-bold text-[#1A1712]">Mark submitted</button>
     </div>
   );
 }

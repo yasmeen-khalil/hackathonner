@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-const FIELDS: [string, string, boolean][] = [["name", "Your name", false], ["handle", "Team handle (lowercase, numbers, dashes)", false], ["working_on", "What you are working on", true], ["goals", "Goals for the next few months", true], ["interests", "Interests and topics you read about", true], ["stack", "Stack and tools you build with", false], ["city", "Home city", false], ["availability", "Availability (weekends, weekday evenings, travel ok?)", false]];
+const FIELDS: [string, string, boolean][] = [["name", "Your name", false], ["working_on", "What you are working on", true], ["goals", "Goals for the next few months", true], ["interests", "Interests and topics you read about", true], ["stack", "Stack and tools you build with", false], ["city", "Home city", false], ["availability", "Availability (weekends, weekday evenings, travel ok?)", false]];
 export default function Profile() {
   const [p, setP] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
