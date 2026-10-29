@@ -11,7 +11,7 @@ def _headers():
     return {"Authorization": f"Bearer {settings.PARASAIL_API_KEY}", "Content-Type": "application/json"}
 
 
-def chat(messages, model=None, schema=None, max_tokens=6000, temperature=0.1) -> str:
+def chat(messages, model=None, schema=None, max_tokens=8000, temperature=0.1) -> str:
     body = {"model": model or settings.FAST_MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}
     if schema is not None:
         body["response_format"] = {"type": "json_schema", "json_schema": {"name": "out", "schema": schema}}

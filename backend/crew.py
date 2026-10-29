@@ -16,7 +16,7 @@ from models import Brief, ToolExplanations, Plan
 Emit = Callable[[str, str, Optional[dict]], None]  # (type, message_or_section_name, data)
 
 
-def make_llm(model: str | None = None, max_tokens: int = 6000) -> LLM:
+def make_llm(model: str | None = None, max_tokens: int = 8000) -> LLM:
     return LLM(model=model or settings.FAST_MODEL, provider="openai", base_url=settings.PARASAIL_BASE,
                api_key=settings.PARASAIL_API_KEY, temperature=0.1, max_tokens=max_tokens)
 
@@ -44,14 +44,20 @@ def _run_agent_json(agent: Agent, description: str, expected: str, model_cls: ty
     repair with a schema-locked Parasail call over the agent's raw answer. Both paths are real model work."""
     task = Task(description=description, expected_output=expected, agent=agent, output_pydantic=model_cls)
     crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False)
-    result = crew.kickoff()
+    try:
+        result = crew.kickoff()
+    except Exception as exc:  # noqa: BLE001 - a model that ran out of output budget or returned junk
+        # Same job, same model family, one direct schema-locked call. Still Parasail, still grounded on the same input.
+        data = parasail.json_chat(f"{system_hint}\nRole: {agent.role}. {agent.goal}", description,
+                                  schema=model_cls.model_json_schema(), max_tokens=8000)
+        return model_cls.model_validate(data).model_dump()
     if getattr(result, "pydantic", None) is not None:
         return result.pydantic.model_dump()
     if getattr(result, "json_dict", None):
         return model_cls.model_validate(result.json_dict).model_dump()
     raw = result.raw or ""
     data = parasail.json_chat(system_hint, f"Convert this answer into the required JSON. Keep every fact, add nothing.\n\n{raw}",
-                              schema=model_cls.model_json_schema())
+                              schema=model_cls.model_json_schema(), max_tokens=8000)
     return model_cls.model_validate(data).model_dump()
 
 
@@ -94,7 +100,7 @@ class BriefFlow(Flow[BriefState]):
     def extract_brief(self, sources):
         self.emit("status", "Reader agent is extracting the brief on Parasail", None)
         reader = Agent(role="Event Reader", goal="Turn hackathon web pages into one exact, honest brief.",
-                       backstory=READER_RULES, llm=make_llm(settings.FAST_MODEL, 7000), verbose=False, allow_delegation=False)
+                       backstory=READER_RULES, llm=make_llm(settings.FAST_MODEL, 8000), verbose=False, allow_delegation=False)
         desc = (f"Today is {_now_text()}.\nRead these sources and produce the brief as JSON matching the Brief schema.\n"
                 f"{_sources_text(sources)}")
         brief = _run_agent_json(reader, desc, "A single JSON object matching the Brief schema.", Brief, READER_RULES)
@@ -115,7 +121,7 @@ class BriefFlow(Flow[BriefState]):
                                      "endpoints, commands or steps the sources name, covering every track or category the rules describe, not only "
                                      "the first one. key_source: where the key or account comes from, and whether the event provides it. "
                                      "docs_url: only a link the sources give. No marketing words."),
-                          llm=make_llm(settings.FAST_MODEL, 4000), verbose=False, allow_delegation=False)
+                          llm=make_llm(settings.FAST_MODEL, 8000), verbose=False, allow_delegation=False)
         desc = ("Required tools and partner notes from the brief:\n" + json.dumps(
             {"partners": brief.get("partners"), "required_tools": brief.get("required_tools"), "tracks": brief.get("tracks")},
             indent=1) + "\n\nSource excerpts:\n" + _sources_text(self.state.sources, 30000))
@@ -138,7 +144,7 @@ class BriefFlow(Flow[BriefState]):
                                    "combine them. If the brief has no submission deadline at all, do NOT assume one: leave every 'due' "
                                    "null, make next_action 'Find the submission deadline: ask the organizers', and say so in warnings. "
                                    "The timeline must keep every agenda item, converted to ISO 8601 when the date and time zone are known."),
-                        llm=make_llm(settings.FAST_MODEL, 4000), verbose=False, allow_delegation=False)
+                        llm=make_llm(settings.FAST_MODEL, 8000), verbose=False, allow_delegation=False)
         desc = (f"Today is {_now_text()}.\nBrief:\n" + json.dumps(
             {k: brief.get(k) for k in ("name", "start", "end", "timezone", "agenda", "submission", "tracks", "required_tools")},
             indent=1))

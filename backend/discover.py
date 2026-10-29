@@ -62,7 +62,7 @@ def discover(query: str, profile: dict) -> dict:
                                "else null. Give a fit score from 1 to 10 against the profile with a one-sentence reason that names "
                                "the matching interest, city or stack. A listing page that merely aggregates events gets fit 5 at most. "
                                "Never invent dates, places or prizes."),
-                    llm=make_llm(settings.FAST_MODEL, 4000), verbose=False, allow_delegation=False)
+                    llm=make_llm(settings.FAST_MODEL, 8000), verbose=False, allow_delegation=False)
     desc = (f"Today is {dt.date.today().isoformat()}.\nProfile:\n{json.dumps(profile, indent=1)}\n\nSearch results:\n"
             + json.dumps(hits, indent=1) + "\n\nReturn the ranked list, best fit first, as JSON matching DiscoverResult.")
     out = _run_agent_json(matcher, desc, "JSON matching DiscoverResult.", DiscoverResult,
