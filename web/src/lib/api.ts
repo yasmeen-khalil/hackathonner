@@ -24,7 +24,6 @@ export type Hackathon = {
   after?: After | null; error?: string | null; created_at: string; updated_at: string;
 };
 export type OneStatus = { cli: boolean; error?: string; platforms: Record<string, { connected: boolean; count: number; name?: string | null }> };
-export type CalendarResult = { created: { summary: string; start: string; link?: string | null }[] };
 export type HackathonRow = {
   id: string; status: string; name: string; start?: string | null; end?: string | null; format?: string | null;
   city?: string | null; deadline?: string | null; after?: After | null; created_at: string; error?: string | null;
@@ -42,8 +41,6 @@ export const api = {
     fetch(`${API}/api/hackathons/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(j<Hackathon>),
   remove: (id: string) => fetch(`${API}/api/hackathons/${id}`, { method: "DELETE" }).then(j<{ ok: boolean }>),
   oneStatus: () => fetch(`${API}/api/one/status`, { cache: "no-store" }).then(j<OneStatus>),
-  toCalendar: (id: string, what: "deadline" | "agenda" | "all") =>
-    fetch(`${API}/api/hackathons/${id}/calendar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ what }) }).then(j<CalendarResult>),
   toDiscord: (id: string, channel_id?: string) =>
     fetch(`${API}/api/hackathons/${id}/discord`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channel_id }) }).then(j<{ ok: boolean; message_id?: string }>),
   profile: () => fetch(`${API}/api/profile`, { cache: "no-store" }).then(j<Record<string, string>>),

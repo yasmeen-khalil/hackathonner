@@ -141,8 +141,8 @@ function Workspace() {
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <div className="rounded border border-neutral-900 bg-white p-4"><div className="text-xs uppercase tracking-wide text-neutral-500">Next action</div><div className="mt-1 font-medium">{plan.next_action}</div></div>
-            <H>Put it on your calendar</H>
-            <Actions id={id} one={one} deadline={deadline} agendaCount={b?.agenda?.length || 0} after={h.after || {}} onDone={d => setH(d)} />
+            <H>Send it to yourself</H>
+            <Actions id={id} one={one} after={h.after || {}} onDone={d => setH(d)} />
             <H>Checklist</H>
             <ul className="space-y-2">{plan.checklist.map((c, i) => (
               <li key={i} className="flex items-start gap-3 rounded border border-neutral-200 bg-white p-3">
@@ -213,46 +213,43 @@ function AfterForm({ after, onSave }: { after: After; onSave: (a: After) => Prom
 
 type OneConnectStatus = { configured: boolean; connected: boolean; platforms: Record<string, { connected: boolean; name?: string }>; error?: string; reconnect?: boolean };
 
-function Actions({ id, one, deadline, agendaCount, after, onDone }: { id: string; one: OneStatus | null; deadline?: string | null; agendaCount: number; after: After; onDone: (d: Hackathon) => void }) {
+function Actions({ id, one, after, onDone }: { id: string; one: OneStatus | null; after: After; onDone: (d: Hackathon) => void }) {
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
   const [oc, setOc] = useState<OneConnectStatus | null>(null);
   useEffect(() => { fetch("/api/actions").then(r => r.json()).then(setOc).catch(() => setOc(null)); }, []);
   const viaConnect = !!oc?.configured;
-  const cal = viaConnect ? !!oc?.platforms?.["google-calendar"]?.connected : !!one?.platforms?.["google-calendar"]?.connected;
-  const dis = viaConnect ? !!oc?.platforms?.["discord"]?.connected : !!one?.platforms?.["discord"]?.connected;
   const gm = viaConnect && !!oc?.platforms?.["gmail"]?.connected;
-  async function run(what: "deadline" | "all" | "discord" | "email") {
+  const dis = viaConnect ? !!oc?.platforms?.["discord"]?.connected : !!one?.platforms?.["discord"]?.connected;
+  async function run(what: "discord" | "email") {
     setBusy(what); setMsg("");
     try {
       if (viaConnect) {
         const r = await fetch("/api/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hackathonId: id, what }) });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || r.statusText);
-        setMsg(what === "discord" ? "Posted to Discord through One." : what === "email" ? `Emailed the brief to ${d.to} through One.` : `Created ${d.created.length} event${d.created.length === 1 ? "" : "s"} in your ${d.calendar || "Hackathonner"} calendar through One.`);
-      } else if (what === "email") { setMsg("Email needs One Connect, which is not configured here."); }
-      else if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
-      else { const r = await api.toCalendar(id, what); setMsg(`Created ${r.created.length} calendar event${r.created.length === 1 ? "" : "s"}.`); }
+        setMsg(what === "discord" ? "Posted to Discord through One." : `Emailed the brief and gameplan to ${d.to}.`);
+      } else if (what === "discord") { const r = await api.toDiscord(id); setMsg(r.ok ? "Posted to Discord." : "Discord did not confirm."); }
+      else { setMsg("Email needs One Connect, which is not configured here."); }
       onDone(await api.get(id));
     } catch (e) { setMsg(String(e)); } finally { setBusy(""); }
   }
-  const hint = viaConnect
-    ? (oc?.connected ? "Events go into a calendar named Hackathonner inside your Google account, created on first use. Your main calendar is never touched." : "Connect your own apps through One. Hackathonner only gets what you grant, and you can revoke it any time.")
-    : (one?.error ? `One: ${one.error}` : !cal ? "Connect Google Calendar through One to enable these." : "Events are created through One on the primary calendar.");
+  if (!viaConnect && !dis) return null;
   return (
     <div className="rounded border border-neutral-200 bg-white p-4 text-sm">
       {viaConnect && !oc?.connected && (
-        <div className="mb-3"><ConnectButton authorizeUrl="/api/one/authorize" logos={["google-calendar"]} connected={false} returnTo={typeof window !== "undefined" ? window.location.pathname : "/"} onSuccess={() => fetch("/api/actions").then(r => r.json()).then(setOc)} onError={(e: unknown) => setMsg(String(e))} /></div>
+        <div className="mb-3">
+          <ConnectButton authorizeUrl="/api/one/authorize" logos={["google-calendar", "gmail"]} connected={false} returnTo={typeof window !== "undefined" ? window.location.pathname : "/"} onSuccess={() => fetch("/api/actions").then(r => r.json()).then(setOc)} onError={(e: unknown) => setMsg(String(e))} />
+          <p className="mt-2 text-xs text-neutral-500">Connect your own apps through One. Hackathonner reads your calendar to spot hackathons you already planned, and can email you this brief. It never writes to your calendar. You can revoke the grant on One at any time.</p>
+        </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <button disabled={!cal || !deadline || !!busy} onClick={() => run("deadline")} className="rounded border border-neutral-900 px-3 py-1.5 disabled:opacity-40">{busy === "deadline" ? "Adding…" : "Deadline to Google Calendar"}</button>
-        <button disabled={!cal || !deadline || agendaCount === 0 || !!busy} onClick={() => run("all")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "all" ? "Adding…" : `Deadline + ${agendaCount} agenda items`}</button>
-        {gm && <button disabled={!!busy} onClick={() => run("email")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "email" ? "Sending…" : "Email me the brief"}</button>}
+        {gm && <button disabled={!!busy} onClick={() => run("email")} className="rounded border border-neutral-900 px-3 py-1.5 disabled:opacity-40">{busy === "email" ? "Sending…" : "Email me the brief and gameplan"}</button>}
         {dis && <button disabled={!!busy} onClick={() => run("discord")} className="rounded border border-neutral-300 px-3 py-1.5 disabled:opacity-40">{busy === "discord" ? "Posting…" : "Post brief to Discord"}</button>}
       </div>
-      <p className="mt-2 text-xs text-neutral-500">{!deadline && cal ? "No dated deadline in the brief yet. Set one under Submit." : hint}</p>
+      {oc?.connected && !gm && <p className="mt-2 text-xs text-neutral-500">Gmail is not in your grant, so there is nothing to send with. Reconnect through One to add it.</p>}
       {msg && <p className="mt-2 text-xs">{msg}</p>}
-      {after.calendar_events?.length ? <ul className="mt-2 space-y-1 text-xs">{after.calendar_events.map((e, i) => <li key={i}>{e.summary} · {fmtDate(e.start)} {e.link && <a className="underline" target="_blank" href={e.link}>open</a>}</li>)}</ul> : null}
+      {after.emailed_at && <p className="mt-2 text-xs text-neutral-500">Last emailed to {after.emailed_to} on {fmtDate(after.emailed_at)}.</p>}
     </div>
   );
 }

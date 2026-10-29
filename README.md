@@ -15,7 +15,7 @@ Every hackathon scatters its information. Today's event alone lived on a Luma pa
 1. **Brief.** Paste every link you have, or photograph the QR codes on the card, slide or poster and the links are read out of them. Hackathonner reads the pages and builds a dashboard for that hackathon: when and where, tracks, requirements and disqualifiers, the rubric with weights, every must-use tool explained in plain words, the submission link and what the form asks for, the agenda, prizes, Discord, and a list of what the pages did not say so you can ask the organizers.
 2. **Countdown.** The submission deadline is on every screen. Amber in the last two hours, red in the last thirty minutes.
 3. **Gameplan.** A checklist with times, built backwards from the deadline, plus the agenda as a timeline. Tick things off.
-4. **Actions.** One click puts the deadline and agenda on a Hackathonner calendar inside your own Google account (your main calendar is never touched), emails you the brief and gameplan through your own Gmail, or posts the brief to a Discord channel. All through One Connect, with a grant you control and can revoke.
+4. **Your calendar, read only.** Connect your own Google Calendar through One Connect and Hackathonner reads the next 90 days, spots the hackathons you already signed up for, and offers to start their brief with one click. It never writes to your calendar. One click also emails you the brief and gameplan through your own Gmail. Every grant is yours to revoke on One.
 5. **Discover.** Live search for upcoming hackathons, ranked against your profile with an honest fit score and reason.
 6. **Debrief.** Mark the project submitted, then record placing, prizes, judge comments and notes as they arrive.
 
@@ -24,9 +24,9 @@ Every hackathon scatters its information. Today's event alone lived on a Luma pa
 - **You.com** is the grounding. Its Contents endpoint turns each event page into clean markdown, which is the only material the helpers are allowed to use. Its Search endpoint finds upcoming hackathons for Discover. Remove You.com and nothing can be read or found.
 - **CrewAI** is the team. A Flow runs the helpers: the Reader turns pages into the brief, then the Explainer (tool cards) and the Planner (checklist and timeline) run in parallel on the brief. Discover runs a Matcher. Each helper is an Agent with a role, and every section streams to the page the moment it lands.
 - **Parasail** is the model behind every helper, through its OpenAI-compatible API. Extraction uses `parasail-deepseek-v4-flash` with schema-locked JSON (`response_format` with a `json_schema`), so the dashboard always receives a valid brief. Nothing in the brief is hardcoded: the same code built this event's brief from its public pages.
-- **One** is the hands. Through One Connect, each signed-in user links their own Google Calendar and Gmail (Discord optional) to Hackathonner and grants only the access they choose. The app finds the right action with `searchActions`, runs it with `runAction`, and One enforces the grant on every call. A fallback path uses the One CLI with the operator's own connections.
+- **One** is the hands and eyes into the user's own apps. Through One Connect, each signed-in user links their own Google Calendar (read only) and Gmail to Hackathonner and grants only the access they choose. The app finds the right action with `searchActions`, runs it with `runAction`, and One enforces the grant on every call: reading upcoming events to spot planned hackathons, sending the brief by email. A fallback path uses the One CLI with the operator's own connections.
 
-Partners are load-bearing: delete any one of them and a feature disappears.
+Partners are load-bearing: delete any one of them and a feature disappears. Nothing writes to a user's calendar.
 
 ## Architecture
 

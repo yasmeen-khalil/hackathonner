@@ -1,11 +1,18 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import QrDrop from "@/components/QrDrop";
 
-export default function NewHackathon() {
-  const [text, setText] = useState("");
+export default function NewHackathonPage() {
+  return <Suspense fallback={null}><NewHackathon /></Suspense>;
+}
+
+function NewHackathon() {
+  const params = useSearchParams();
+  const [text, setText] = useState(params.get("urls") || "");
+  const fromTitle = params.get("title");
+  useEffect(() => { const u = params.get("urls"); if (u) setText(u); }, [params]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [notes, setNotes] = useState<string[]>([]);
@@ -19,6 +26,7 @@ export default function NewHackathon() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-2xl font-semibold">Add a hackathon</h1>
+      {fromTitle && <p className="mb-2 rounded bg-neutral-100 px-3 py-2 text-sm">From your calendar: <span className="font-medium">{fromTitle}</span>{!text && ". The event had no link, paste the event page below."}</p>}
       <p className="mb-4 text-sm text-neutral-500">Paste every link you have: the event page, the rules page, the sponsor pages, the Discord invite, the submission form. One per line or separated by spaces.</p>
       <textarea value={text} onChange={e => setText(e.target.value)} rows={8} placeholder="https://..." className="w-full rounded border border-neutral-300 bg-white p-3 font-mono text-sm" />
       <div className="mt-3"><QrDrop onLinks={(links, n) => { if (links.length) setText(t => (t.trim() ? t.trim() + "\n" : "") + links.join("\n")); setNotes(n); }} /></div>

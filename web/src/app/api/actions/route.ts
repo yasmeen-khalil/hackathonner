@@ -18,7 +18,7 @@ export async function GET() {
     const conns = (await oneConnect.listConnections(uid)) as Conn[];
     const platforms: Record<string, { connected: boolean; name?: string }> = {};
     for (const c of conns) platforms[c.platform] = { connected: true, name: c.name };
-    for (const p of ["google-calendar", "discord"]) platforms[p] ??= { connected: false };
+    for (const p of ["google-calendar", "gmail"]) platforms[p] ??= { connected: false };
     return json({ configured: true, connected: true, platforms });
   } catch (e) {
     const msg = String(e);
@@ -34,8 +34,6 @@ async function pickAction(uid: string, platform: string, intent: string, method:
   if (!hit) throw new Error(`No ${platform} action matched ${method} ${pathTest} for "${intent}". Found: ${actions.map(a => `${a.method} ${a.path}`).join(", ") || "nothing"}`);
   return hit;
 }
-
-const CAL_NAME = "Hackathonner";
 
 async function userEmail(uid: string): Promise<string | null> {
   if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
@@ -66,24 +64,11 @@ function briefEmail(h: { brief?: AnyBrief; plan?: { next_action?: string; checkl
   return { subject: `${b.name || "Hackathon"}: brief and gameplan`, text: lines.join("\n") };
 }
 /** The app's own calendar inside the user's Google account. Created once, then reused. The main calendar is never touched. */
-async function hackathonnerCalendarId(uid: string, connectionKey: string, timeZone?: string | null): Promise<string> {
-  const list = await pickAction(uid, "google-calendar", "list the calendars on the user's calendar list", "GET", /calendarList\/?$/);
-  const r = await oneConnect!.runAction(uid, { connectionKey, actionId: list._id });
-  if (!r.ok) throw new Error(r.blockedByGrant ? "Listing calendars is outside what you granted. Widen the Hackathonner permission set on One." : `Calendar list answered ${r.status}`);
-  const items = ((r.data as { items?: { id: string; summary?: string }[] })?.items) || [];
-  const mine = items.find(c => c.summary === CAL_NAME);
-  if (mine) return mine.id;
-  const create = await pickAction(uid, "google-calendar", "create a new secondary calendar", "POST", /\/calendars\/?$/);
-  const c = await oneConnect!.runAction(uid, { connectionKey, actionId: create._id, body: { summary: CAL_NAME, description: "Deadlines and agendas added by Hackathonner.", ...(timeZone ? { timeZone } : {}) } });
-  if (!c.ok) throw new Error(c.blockedByGrant ? "Creating a calendar is outside what you granted. Widen the Hackathonner permission set on One." : `Create calendar answered ${c.status}`);
-  return (c.data as { id: string }).id;
-}
-
 export async function POST(req: NextRequest) {
   const uid = await currentUserId();
   if (!uid) return json({ error: "Unauthorized" }, 401);
   if (!oneConfigured || !oneConnect) return json({ error: "One Connect is not configured" }, 503);
-  const { hackathonId, what, channelId } = await req.json() as { hackathonId: string; what: "deadline" | "all" | "discord" | "email"; channelId?: string };
+  const { hackathonId, what, channelId } = await req.json() as { hackathonId: string; what: "discord" | "email"; channelId?: string };
   const conns = (await oneConnect.listConnections(uid)) as Conn[];
   try {
     if (what === "email") {
@@ -114,22 +99,7 @@ export async function POST(req: NextRequest) {
       if (!r.ok) return json({ error: r.blockedByGrant ? "Outside what you granted to Hackathonner on One" : `Discord answered ${r.status}`, detail: r.data }, 502);
       return json({ ok: true });
     }
-    const cal = conns.find(c => c.platform === "google-calendar");
-    if (!cal) return json({ error: "Google Calendar is not connected through One" }, 400);
-    const rows = (await backend(uid, `/api/hackathons/${hackathonId}/calendar-rows?what=${what}`)).rows as { summary: string; start: string; end: string; description: string; location: string }[];
-    if (!rows.length) return json({ error: "The brief has no dated deadline or agenda yet" }, 400);
-    const h0 = await backend(uid, `/api/hackathons/${hackathonId}`);
-    const calendarId = await hackathonnerCalendarId(uid, cal.key, h0.brief?.timezone);
-    const action = await pickAction(uid, "google-calendar", "create an event on a calendar", "POST", /\/events\/?$/);
-    const created: { summary: string; start: string; link?: string }[] = [];
-    for (const row of rows) {
-      const r = await oneConnect.runAction(uid, { connectionKey: cal.key, actionId: action._id, pathParams: { calendarId },
-        body: { summary: row.summary, description: row.description, location: row.location, start: { dateTime: row.start }, end: { dateTime: row.end } } });
-      if (!r.ok) return json({ error: r.blockedByGrant ? "Outside what you granted to Hackathonner on One" : `Calendar answered ${r.status}`, detail: r.data, created }, 502);
-      created.push({ summary: row.summary, start: row.start, link: (r.data as { htmlLink?: string })?.htmlLink });
-    }
-    await backend(uid, `/api/hackathons/${hackathonId}`, { method: "PATCH", body: JSON.stringify({ after: { ...(h0.after || {}), calendar_events: created, calendar_name: CAL_NAME } }) });
-    return json({ created, calendar: CAL_NAME });
+    return json({ error: "Unknown action" }, 400);
   } catch (e) {
     return json({ error: String(e).slice(0, 300) }, 502);
   }

@@ -14,7 +14,7 @@ if shutil.which("one") is None:
             os.environ["PATH"] = b + os.pathsep + os.environ.get("PATH", "")
             break
 
-PLATFORMS = ("google-calendar", "discord", "gmail")
+PLATFORMS = ("google-calendar", "gmail", "discord")
 
 
 def status() -> dict:
@@ -32,19 +32,6 @@ def status() -> dict:
         mine = [c for c in rows if c.get("platform") == p and c.get("state") == "operational"]
         out["platforms"][p] = {"connected": bool(mine), "count": len(mine), "name": (mine[0].get("name") if mine else None)}
     return out
-
-
-def add_calendar_event(summary: str, start_iso: str, end_iso: str, description: str = "", location: str = "") -> dict:
-    """Create one event on the primary Google Calendar. Returns the created event (id, htmlLink...)."""
-    key = oc.connection("google-calendar")
-    action_id = oc.resolve("google-calendar", "create an event on a calendar", "POST", "/calendars/{calendarId}/events",
-                           task="put a hackathon's deadline and agenda on the builder's calendar")
-    body = {"summary": summary, "start": {"dateTime": start_iso}, "end": {"dateTime": end_iso}}
-    if description:
-        body["description"] = description
-    if location:
-        body["location"] = location
-    return oc.execute("google-calendar", action_id, key, data=body, path_vars={"calendarId": "primary"}) or {}
 
 
 def post_discord(channel_id: str, content: str) -> dict:

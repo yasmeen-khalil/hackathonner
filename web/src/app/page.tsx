@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, HackathonRow, fmtDate } from "@/lib/api";
 import Countdown from "@/components/Countdown";
+import FromCalendar from "@/components/FromCalendar";
 
 function Card({ h }: { h: HackathonRow }) {
   return (
@@ -42,6 +43,7 @@ export default function Home() {
         <h1 className="text-2xl font-semibold">Hackathons</h1>
         <Link href="/new" className="rounded bg-black px-3 py-2 text-sm text-white">Add a hackathon</Link>
       </div>
+      <FromCalendar known={rows.map(r => r.name)} />
       {rows.length === 0 && <p className="rounded border border-dashed border-neutral-300 p-8 text-center text-neutral-500">Nothing yet. Paste an event's links and the brief builds itself.</p>}
       <Group title="Today or in progress" items={today} />
       <Group title="Upcoming" items={upcoming} />

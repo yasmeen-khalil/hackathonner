@@ -94,10 +94,6 @@ class DiscoverBody(BaseModel):
     query: str = ""
 
 
-class CalendarBody(BaseModel):
-    what: str = "deadline"  # deadline | agenda | all
-
-
 class DiscordBody(BaseModel):
     channel_id: str | None = None
 
@@ -218,60 +214,6 @@ async def events(hid: str, x_user_id: str | None = Header(default=None)):
 @app.get("/api/one/status")
 def one_status():
     return one_actions.status()
-
-
-def _event_rows(d: dict, what: str) -> list[dict]:
-    """Turn the brief's deadline and agenda into calendar rows. Agenda items need a date; we take the event's start date."""
-    import datetime as dt
-    b = d.get("brief") or {}
-    rows = []
-    sub = b.get("submission") or {}
-    if what in ("deadline", "all") and sub.get("deadline"):
-        end = dt.datetime.fromisoformat(sub["deadline"])
-        start = end - dt.timedelta(minutes=45)
-        rows.append({"summary": f"{b.get('name')}: submission freeze and deadline", "start": start.isoformat(), "end": end.isoformat(),
-                     "description": f"Submit at {sub.get('url') or 'the form'}. Fields: {', '.join(sub.get('fields') or [])}",
-                     "location": (b.get("venue") or {}).get("address") or ""})
-    if what in ("agenda", "all") and b.get("agenda") and b.get("start"):
-        day = dt.datetime.fromisoformat(b["start"])
-        for item in b["agenda"]:
-            t = item.get("time", "")
-            try:
-                when = dt.datetime.fromisoformat(t) if t[:4].isdigit() and "-" in t else day.replace(hour=int(t.split(":")[0]), minute=int(t.split(":")[1][:2]))
-            except Exception:  # noqa: BLE001
-                continue
-            rows.append({"summary": f"{b.get('name')}: {item.get('title')}", "start": when.isoformat(), "end": (when + dt.timedelta(minutes=30)).isoformat(),
-                         "description": "", "location": (b.get("venue") or {}).get("address") or ""})
-    return rows
-
-
-@app.get("/api/hackathons/{hid}/calendar-rows")
-def calendar_rows(hid: str, what: str = "deadline", x_user_id: str | None = Header(default=None)):
-    """The deadline and agenda as calendar rows. The web app creates them through One Connect with the user's grant."""
-    d = storage.get(hid, owner_of(x_user_id))
-    if not d:
-        raise HTTPException(404, "Not found")
-    return {"rows": _event_rows(d, what)}
-
-
-@app.post("/api/hackathons/{hid}/calendar")
-def to_calendar(hid: str, body: CalendarBody, x_user_id: str | None = Header(default=None)):
-    d = storage.get(hid, owner_of(x_user_id))
-    if not d:
-        raise HTTPException(404, "Not found")
-    rows = _event_rows(d, body.what)
-    if not rows:
-        raise HTTPException(400, "The brief has no dated deadline or agenda to put on the calendar")
-    created = []
-    try:
-        for r in rows:
-            ev = one_actions.add_calendar_event(r["summary"], r["start"], r["end"], r["description"], r["location"])
-            created.append({"summary": r["summary"], "start": r["start"], "link": (ev or {}).get("htmlLink")})
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(502, f"One could not create the event: {str(exc)[:300]}. Created so far: {len(created)}")
-    after = {**(d.get("after") or {}), "calendar_events": created}
-    storage.update(hid, after_json=after)
-    return {"created": created}
 
 
 @app.post("/api/hackathons/{hid}/discord")
