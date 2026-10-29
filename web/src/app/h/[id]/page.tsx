@@ -141,7 +141,6 @@ function Workspace() {
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <div className="rounded border border-neutral-900 bg-white p-4"><div className="text-xs uppercase tracking-wide text-neutral-500">Next action</div><div className="mt-1 font-medium">{plan.next_action}</div></div>
-            <H>Send it to yourself</H>
             <Actions id={id} one={one} after={h.after || {}} onDone={d => setH(d)} />
             <H>Checklist</H>
             <ul className="space-y-2">{plan.checklist.map((c, i) => (
@@ -235,7 +234,8 @@ function Actions({ id, one, after, onDone }: { id: string; one: OneStatus | null
     } catch (e) { setMsg(String(e)); } finally { setBusy(""); }
   }
   if (!viaConnect && !dis) return null;
-  return (
+  return (<>
+    <H>Send it to yourself</H>
     <div className="rounded border border-neutral-200 bg-white p-4 text-sm">
       {viaConnect && !oc?.connected && (
         <div className="mb-3">
@@ -251,7 +251,7 @@ function Actions({ id, one, after, onDone }: { id: string; one: OneStatus | null
       {msg && <p className="mt-2 text-xs">{msg}</p>}
       {after.emailed_at && <p className="mt-2 text-xs text-neutral-500">Last emailed to {after.emailed_to} on {fmtDate(after.emailed_at)}.</p>}
     </div>
-  );
+  </>);
 }
 
 function DeadlineFix({ id, current, onSaved }: { id: string; current?: string | null; onSaved: (d: Hackathon) => void }) {
