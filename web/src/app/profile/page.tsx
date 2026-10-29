@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import Teams from "@/components/Teams";
 const FIELDS: [string, string, boolean][] = [["name", "Your name", false], ["working_on", "What you are working on", true], ["goals", "Goals for the next few months", true], ["interests", "Interests and topics you read about", true], ["stack", "Stack and tools you build with", false], ["city", "Home city", false], ["availability", "Availability (weekends, weekday evenings, travel ok?)", false]];
 export default function Profile() {
   const [p, setP] = useState<Record<string, string>>({});
@@ -16,6 +17,7 @@ export default function Profile() {
             : <input value={p[k] || ""} onChange={e => setP({ ...p, [k]: e.target.value })} className="mt-1 w-full rounded-xl bg-[#E4F2E7] p-2 text-sm outline-none focus:ring-2 focus:ring-[#EC6699]" />}
         </label>))}</div>
       <button onClick={async () => { await api.saveProfile(p); setSaved(true); setTimeout(() => setSaved(false), 1500); }} className="mt-4 rounded-full bg-[#EC6699] px-5 py-2 text-sm font-bold text-[#1A1712]">{saved ? "Saved" : "Save"}</button>
+      <div className="mt-10"><Teams /></div>
     </div>
   );
 }

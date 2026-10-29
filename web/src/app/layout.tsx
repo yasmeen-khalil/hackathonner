@@ -7,7 +7,7 @@ import { ClerkProvider, Show, UserButton } from "@clerk/nextjs";
 
 const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-export const metadata: Metadata = { title: "Hackathonner", description: "Paste a hackathon's links, get its brief, gameplan and countdown." };
+export const metadata: Metadata = { title: "Hackathonner", description: "Paste a hackathon's links, get its brief, gameplan and countdown.", icons: { icon: "/icon.svg" } };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

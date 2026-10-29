@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, HackathonRow, fmtDate } from "@/lib/api";
+import { api, HackathonRow, Team, fmtDate } from "@/lib/api";
 import Countdown from "@/components/Countdown";
 import FromCalendar from "@/components/FromCalendar";
 
 function Card({ h, onRemove }: { h: HackathonRow; onRemove: (id: string) => void }) {
   return (
     <div className="relative">
-    <button onClick={() => { if (confirm(`Remove "${h.name}" and its brief?`)) onRemove(h.id); }} className="absolute right-3 top-3 z-10 rounded-full bg-white px-2 py-0.5 text-xs text-[#6B6458] hover:text-[#C8160C]" aria-label="Remove">Remove</button>
+    {h.mine !== false && <button onClick={() => { if (confirm(`Remove "${h.name}" and its brief?`)) onRemove(h.id); }} className="absolute right-3 top-3 z-10 rounded-full bg-white px-2 py-0.5 text-xs text-[#6B6458] hover:text-[#C8160C]" aria-label="Remove">Remove</button>}
     <Link href={`/h/${h.id}`} className="block hk-block p-4 hover:brightness-[0.98]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-medium">{h.name}</div>
-          <div className="text-sm text-[#6B6458]">{[fmtDate(h.start, { weekday: "short", month: "short", day: "numeric" }), h.city, h.format?.replace("_", " ")].filter(Boolean).join(" · ")}</div>
+          <div className="text-sm text-[#6B6458]">{[fmtDate(h.start, { weekday: "short", month: "short", day: "numeric" }), h.city, h.format?.replace("_", " "), h.team_name].filter(Boolean).join(" · ")}</div>
         </div>
         <div className="mr-16 flex flex-col items-end gap-1 text-xs">
           {h.status !== "ready" && <span className="rounded-full bg-white px-2 py-0.5 text-[#6B6458]">{h.status === "building" ? "Building" : h.status === "error" ? "Needs a rebuild" : h.status === "submitted" ? "Submitted" : h.status}</span>}
@@ -30,7 +30,8 @@ function Card({ h, onRemove }: { h: HackathonRow; onRemove: (id: string) => void
 export default function Home() {
   const [rows, setRows] = useState<HackathonRow[] | null>(null);
   const [apiErr, setApiErr] = useState("");
-  useEffect(() => { api.list().then(setRows).catch(e => { setApiErr(String(e)); setRows([]); }); }, []);
+  const [pending, setPending] = useState<Team[]>([]);
+  useEffect(() => { api.list().then(setRows).catch(e => { setApiErr(String(e)); setRows([]); }); api.teams().then(ts => setPending(ts.filter(t => t.role === "leader" && t.pending_count > 0))).catch(() => {}); }, []);
   if (rows === null) return <p className="text-[#6B6458]">Loading…</p>;
   if (apiErr) return <div className="mx-auto max-w-4xl hk-block p-6 text-sm"><div className="font-medium text-[#C8160C]">The Hackathonner API is not reachable.</div><p className="mt-1 text-[#C8160C]">{apiErr}</p></div>;
   const now = Date.now();
@@ -47,6 +48,7 @@ export default function Home() {
         <h1 className="text-4xl font-normal tracking-tight">Hackathons</h1>
         <Link href="/new" className="rounded-full bg-[#EC6699] px-5 py-2 text-sm font-bold text-[#1A1712] md:hidden">Add a hackathon</Link>
       </div>
+      {pending.length > 0 && <Link href="/profile" className="hk-block mb-4 flex items-center justify-between p-3 text-sm"><span>{pending.map(t => `${t.pending_count} ${t.pending_count === 1 ? "person" : "people"} asked to join ${t.name}`).join(". ")}.</span><span className="font-bold">Review</span></Link>}
       <FromCalendar known={rows.map(r => r.name)} />
       {rows.length === 0 && <p className="hk-block p-8 text-center text-[#6B6458]">Nothing yet. Paste an event's links and the brief builds itself.</p>}
       <Group title="Today or in progress" items={today} />

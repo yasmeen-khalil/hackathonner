@@ -19,13 +19,15 @@ export type Plan = { next_action: string; checklist: ChecklistItem[]; timeline: 
 export type Tools = { tools: RequiredTool[] };
 export type After = { team_handle?: string; emailed_to?: string; emailed_at?: string; calendar_name?: string; calendar_events?: { summary: string; start: string; link?: string | null }[]; submitted_at?: string; repo_url?: string; video_url?: string; placing?: string; prizes?: string; judge_comments?: string; notes?: string; retro?: string };
 export type Hackathon = {
-  id: string; status: "building" | "ready" | "error" | "submitted"; name?: string | null; urls: string[];
+  id: string; status: "building" | "ready" | "error" | "submitted"; name?: string | null; urls: string[]; owner?: string; mine?: boolean; team_id?: string | null;
   sources?: { sources: { url: string; chars: number }[] } | null; brief?: Brief | null; tools?: Tools | null; plan?: Plan | null;
   after?: After | null; error?: string | null; created_at: string; updated_at: string; draft?: number; progress?: { steps: { key: string; label: string; state: string }[] } | null;
 };
 export type OneStatus = { cli: boolean; error?: string; platforms: Record<string, { connected: boolean; count: number; name?: string | null }> };
+export type TeamMember = { owner: string; role: "leader" | "member"; status: "approved" | "pending" | "declined"; display_name?: string | null; email?: string | null; requested_at: string };
+export type Team = { id: string; name: string; role: "leader" | "member"; status: "approved" | "pending" | "declined" | null; invite_token?: string | null; members: TeamMember[]; pending_count: number };
 export type HackathonRow = {
-  id: string; status: string; name: string; start?: string | null; end?: string | null; format?: string | null;
+  id: string; status: string; name: string; team_id?: string | null; team_name?: string | null; mine?: boolean; start?: string | null; end?: string | null; format?: string | null;
   city?: string | null; deadline?: string | null; after?: After | null; created_at: string; error?: string | null;
 };
 
@@ -36,8 +38,15 @@ async function j<T>(r: Response): Promise<T> {
 export const api = {
   list: () => fetch(`${API}/api/hackathons`, { cache: "no-store" }).then(j<HackathonRow[]>),
   get: (id: string) => fetch(`${API}/api/hackathons/${id}`, { cache: "no-store" }).then(j<Hackathon>),
-  create: (urls: string[]) => fetch(`${API}/api/hackathons`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ urls }) }).then(j<{ id: string }>),
-  patch: (id: string, body: Partial<{ name: string; status: string; after: After; plan: Plan; brief: Partial<Brief> | { submission: Partial<Submission> } }>) =>
+  create: (urls: string[], team_id?: string | null) => fetch(`${API}/api/hackathons`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ urls, team_id: team_id || null }) }).then(j<{ id: string }>),
+  teams: () => fetch(`${API}/api/teams`, { cache: "no-store" }).then(j<Team[]>),
+  createTeam: (name: string) => fetch(`${API}/api/teams`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then(j<Team>),
+  joinPreview: (token: string) => fetch(`${API}/api/teams/join/${token}`, { cache: "no-store" }).then(j<{ team_id: string; name: string }>),
+  joinRequest: (token: string) => fetch(`${API}/api/teams/join/${token}`, { method: "POST" }).then(j<{ team_id: string; name: string; status: string }>),
+  memberAction: (tid: string, member: string, action: "approve" | "decline" | "remove") => fetch(`${API}/api/teams/${tid}/members/${encodeURIComponent(member)}/${action}`, { method: "POST" }).then(j<{ ok: boolean }>),
+  leaveTeam: (tid: string) => fetch(`${API}/api/teams/${tid}/leave`, { method: "POST" }).then(j<{ ok: boolean }>),
+  deleteTeam: (tid: string) => fetch(`${API}/api/teams/${tid}`, { method: "DELETE" }).then(j<{ ok: boolean }>),
+  patch: (id: string, body: Partial<{ name: string; status: string; team_id: string; after: After; plan: Plan; brief: Partial<Brief> | { submission: Partial<Submission> } }>) =>
     fetch(`${API}/api/hackathons/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(j<Hackathon>),
   remove: (id: string) => fetch(`${API}/api/hackathons/${id}`, { method: "DELETE" }).then(j<{ ok: boolean }>),
   oneStatus: () => fetch(`${API}/api/one/status`, { cache: "no-store" }).then(j<OneStatus>),

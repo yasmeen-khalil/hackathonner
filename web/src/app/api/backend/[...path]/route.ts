@@ -14,12 +14,26 @@ async function userId(): Promise<string | null> {
   return userId;
 }
 
+/** Name and email, only for team routes, so a leader can tell who is asking to join. */
+async function identity(): Promise<{ name?: string; email?: string }> {
+  if (!hasClerk) return { name: "Local user" };
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const u = await currentUser();
+  const name = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.username || undefined;
+  return { name, email: u?.primaryEmailAddress?.emailAddress || undefined };
+}
+
 async function handler(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const uid = await userId();
   if (!uid) return new Response("Unauthorized", { status: 401 });
   const { path } = await ctx.params;
   const url = `${BACKEND}/${path.join("/")}${req.nextUrl.search}`;
   const headers: Record<string, string> = { "X-User-Id": uid, "X-API-Key": process.env.BACKEND_SECRET || "" };
+  if (path[0] === "api" && path[1] === "teams" && req.method === "POST") {
+    const me = await identity();
+    if (me.name) headers["X-User-Name"] = me.name;
+    if (me.email) headers["X-User-Email"] = me.email;
+  }
   for (const h of ["content-type", "accept"]) { const v = req.headers.get(h); if (v) headers[h] = v; }
   const body = req.method === "GET" || req.method === "HEAD" ? undefined : await req.text();
   let upstream: Response;

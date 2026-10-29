@@ -92,6 +92,15 @@ def _build(hid: str, urls: list[str]):
 
 class NewHackathon(BaseModel):
     urls: list[str]
+    team_id: str | None = None
+
+
+class TeamBody(BaseModel):
+    name: str
+
+
+def who(x_user_name: str | None, x_user_email: str | None) -> tuple[str | None, str | None]:
+    return ((x_user_name or "").strip()[:80] or None, (x_user_email or "").strip()[:120] or None)
 
 
 class DiscoverBody(BaseModel):
@@ -104,6 +113,7 @@ class DiscordBody(BaseModel):
 
 class Patch(BaseModel):
     name: str | None = None
+    team_id: str | None = None  # "" clears
     status: str | None = None
     after: dict[str, Any] | None = None
     plan: dict[str, Any] | None = None
@@ -127,7 +137,10 @@ def create_hackathon(body: NewHackathon, x_user_id: str | None = Header(default=
         raise HTTPException(400, "Paste at least one http(s) link")
     if any(len(u) > 2000 for u in urls):
         raise HTTPException(400, "A link is too long")
-    hid = storage.create_hackathon(urls, owner_of(x_user_id))
+    owner = owner_of(x_user_id)
+    if body.team_id and not storage.is_approved_member(body.team_id, owner):
+        raise HTTPException(403, "You are not a member of that team")
+    hid = storage.create_hackathon(urls, owner, body.team_id)
     threading.Thread(target=_build, args=(hid, urls), daemon=True).start()
     return {"id": hid}
 
@@ -137,6 +150,7 @@ def get_hackathon(hid: str, x_user_id: str | None = Header(default=None)):
     d = storage.get(hid, owner_of(x_user_id))
     if not d:
         raise HTTPException(404, "Not found")
+    d["mine"] = d["owner"] == owner_of(x_user_id)
     return d
 
 
@@ -154,6 +168,12 @@ def patch_hackathon(hid: str, body: Patch, x_user_id: str | None = Header(defaul
         fields["after_json"] = {**(d.get("after") or {}), **body.after}
     if body.plan is not None:
         fields["plan_json"] = body.plan
+    if body.team_id is not None:
+        if d["owner"] != owner_of(x_user_id):
+            raise HTTPException(403, "Only the person who added this hackathon can move it between teams")
+        if body.team_id and not storage.is_approved_member(body.team_id, owner_of(x_user_id)):
+            raise HTTPException(403, "You are not a member of that team")
+        fields["team_id"] = body.team_id or None
     if body.brief is not None and d.get("brief"):
         merged = {**d["brief"]}
         for k, v in body.brief.items():
@@ -274,6 +294,60 @@ def kv_put(key: str, body: KvBody, x_user_id: str | None = Header(default=None))
 @app.delete("/api/kv/{key}")
 def kv_delete(key: str, x_user_id: str | None = Header(default=None)):
     storage.kv_delete(owner_of(x_user_id), key)
+    return {"ok": True}
+
+
+@app.get("/api/teams")
+def list_teams(x_user_id: str | None = Header(default=None)):
+    return storage.my_teams(owner_of(x_user_id))
+
+
+@app.post("/api/teams")
+def create_team(body: TeamBody, x_user_id: str | None = Header(default=None), x_user_name: str | None = Header(default=None), x_user_email: str | None = Header(default=None)):
+    if not body.name.strip():
+        raise HTTPException(400, "Give the team a name")
+    name, email = who(x_user_name, x_user_email)
+    return storage.create_team(body.name, owner_of(x_user_id), name, email)
+
+
+@app.get("/api/teams/join/{token}")
+def join_preview(token: str):
+    t = storage.team_by_token(token)
+    if not t:
+        raise HTTPException(404, "This invite link is not valid")
+    return {"team_id": t["id"], "name": t["name"]}
+
+
+@app.post("/api/teams/join/{token}")
+def join_request(token: str, x_user_id: str | None = Header(default=None), x_user_name: str | None = Header(default=None), x_user_email: str | None = Header(default=None)):
+    name, email = who(x_user_name, x_user_email)
+    r = storage.request_join(token, owner_of(x_user_id), name, email)
+    if not r:
+        raise HTTPException(404, "This invite link is not valid")
+    return r
+
+
+@app.post("/api/teams/{tid}/members/{member}/{action}")
+def member_action(tid: str, member: str, action: str, x_user_id: str | None = Header(default=None)):
+    status = {"approve": "approved", "decline": "declined", "remove": "removed"}.get(action)
+    if not status:
+        raise HTTPException(400, "Unknown action")
+    if not storage.set_member_status(tid, owner_of(x_user_id), member, status):
+        raise HTTPException(403, "Only the team leader can do that")
+    return {"ok": True}
+
+
+@app.post("/api/teams/{tid}/leave")
+def leave(tid: str, x_user_id: str | None = Header(default=None)):
+    if not storage.leave_team(tid, owner_of(x_user_id)):
+        raise HTTPException(400, "A leader cannot leave their own team. Delete it instead.")
+    return {"ok": True}
+
+
+@app.delete("/api/teams/{tid}")
+def delete_team(tid: str, x_user_id: str | None = Header(default=None)):
+    if not storage.delete_team(tid, owner_of(x_user_id)):
+        raise HTTPException(403, "Only the team leader can delete the team")
     return {"ok": True}
 
 

@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { API, api, Hackathon, Brief, Plan, Tools, After, OneStatus, RubricItem, fmtDate } from "@/lib/api";
+import { API, api, Hackathon, Brief, Plan, Tools, After, OneStatus, RubricItem, Team, fmtDate } from "@/lib/api";
 import Countdown from "@/components/Countdown";
 import { ConnectButton } from "@withone/connect/react";
 
@@ -172,6 +172,7 @@ function Workspace() {
             {b.submission.instructions && <p className="mt-2 text-sm">{b.submission.instructions}</p>}
             {b.submission.fields.length > 0 && <><H>The form asks for</H><ul className="list-disc pl-5 text-sm">{b.submission.fields.map((f, i) => <li key={i}>{f}</li>)}</ul></>}
           </div>
+          {h.mine !== false && <TeamPicker id={id} current={h.team_id || ""} onSaved={d => setH(d)} />}
           <DeadlineFix id={id} current={deadline} onSaved={d => setH(d)} />
           <SubmitForm after={h.after || {}} onSave={saveAfter} />
         </div>
@@ -334,5 +335,23 @@ function RubricGroups({ items }: { items: RubricItem[] }) {
             <div className="font-medium">{r.criterion}</div><div className="whitespace-nowrap text-[#6B6458]">{r.weight}</div><div className="text-[#6B6458]">{r.looks_for}</div>
           </div>))}</div>
       </div>))}</div>
+  );
+}
+
+function TeamPicker({ id, current, onSaved }: { id: string; current: string; onSaved: (d: Hackathon) => void }) {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [err, setErr] = useState("");
+  useEffect(() => { api.teams().then(ts => setTeams(ts.filter(t => t.status === "approved"))).catch(() => {}); }, []);
+  if (teams.length === 0) return null;
+  async function pick(team_id: string) { setErr(""); try { onSaved(await api.patch(id, { team_id })); } catch (e) { setErr(String(e).includes("403") ? "Only the person who added this hackathon can move it." : String(e)); } }
+  return (
+    <div className="mt-4 hk-block p-4">
+      <H>Shared with</H>
+      <div className="flex flex-wrap gap-2 text-sm">
+        <button onClick={() => pick("")} className={`rounded-full px-3 py-1 ${!current ? "bg-[#1A1712] text-white" : "bg-white text-[#1A1712]"}`}>Just me</button>
+        {teams.map(t => <button key={t.id} onClick={() => pick(t.id)} className={`rounded-full px-3 py-1 ${current === t.id ? "bg-[#1A1712] text-white" : "bg-white text-[#1A1712]"}`}>{t.name}</button>)}
+      </div>
+      {err && <p className="mt-2 text-xs text-[#C8160C]">{err}</p>}
+    </div>
   );
 }
