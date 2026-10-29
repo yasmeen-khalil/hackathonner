@@ -70,47 +70,79 @@ READER_RULES = (
     "Rubric: when tracks are scored differently, set 'track' on each criterion. Prizes and agenda: copy every line you find. "
     "Time zone: if the pages state none but the venue city is stated, use that city's IANA time zone (for example "
     "America/Los_Angeles for San Francisco) and add 'time zone inferred from the venue city' to unknowns. "
+    "unknowns: only facts a participant needs that the sources do not state, one short line each, never commentary. "
     "Dates: if an agenda or deadline gives a clock time and the event date is stated anywhere in the sources (title, "
     "header, text), combine them into full ISO 8601 with the offset. If no date is stated anywhere, leave dates null."
 )
+
+
+STEPS = [("read", "Reading the pages"), ("draft", "First draft of the brief"), ("reader", "Full brief"), ("explainer", "Tool cards"), ("planner", "Gameplan")]
 
 
 class BriefState(BaseModel):
     urls: list[str] = []
     sources: list[dict] = []
     brief: dict | None = None
+    brief_is_draft: bool = False
     tools: dict | None = None
     plan: dict | None = None
+    progress: dict = {}  # step key -> pending | running | done | skipped
 
 
 class BriefFlow(Flow[BriefState]):
     emit: Emit = staticmethod(lambda t, m, d=None: None)
 
+    def _step(self, key: str, state: str, message: str | None = None):
+        self.state.progress[key] = state
+        steps = [{"key": k, "label": label, "state": self.state.progress.get(k, "pending")} for k, label in STEPS]
+        self.emit("progress", message or "", {"steps": steps, "typical_seconds": 150})
+
     @start()
     def fetch_sources(self):
-        self.emit("status", f"Reading {len(self.state.urls)} page(s) with You.com", None)
+        self._step("read", "running", f"Reading {len(self.state.urls)} page(s) with You.com")
         sources = youcom.contents(self.state.urls)
         if not sources:
             raise RuntimeError("You.com could not read any of the pages")
         self.state.sources = sources
         self.emit("sources", "sources", {"sources": [{"url": s["url"], "chars": len(s["markdown"])} for s in sources]})
+        self._step("read", "done")
         return sources
 
     @listen(fetch_sources)
+    def draft_brief(self, sources):
+        """A quick first pass, one schema-locked call, so the page has something to show in about half a minute.
+        The full Reader replaces it when it finishes. Same sources, same rules, no invention."""
+        self._step("draft", "running", "Drafting a first brief")
+        try:
+            desc = (f"Today is {_now_text()}.\nRead these sources and produce the brief as JSON matching the Brief schema. "
+                    f"This is a quick first pass: fill what is clearly stated, leave the rest null.\n{_sources_text(sources, 40000)}")
+            data = Brief.model_validate(parasail.json_chat(READER_RULES, desc, schema=Brief.model_json_schema(), max_tokens=6000)).model_dump()
+            if self.state.brief is None:  # the full Reader may already have finished on a tiny page
+                self.state.brief = data
+                self.state.brief_is_draft = True
+                self.emit("section", "brief", {**data, "_draft": True})
+            self._step("draft", "done")
+        except Exception as exc:  # noqa: BLE001 - the draft is a convenience; the full Reader is the source of truth
+            self._step("draft", "skipped", f"Draft skipped: {str(exc)[:80]}")
+        return True
+
+    @listen(fetch_sources)
     def extract_brief(self, sources):
-        self.emit("status", "Reader agent is extracting the brief on Parasail", None)
+        self._step("reader", "running", "Reader helper is extracting the full brief")
         reader = Agent(role="Event Reader", goal="Turn hackathon web pages into one exact, honest brief.",
                        backstory=READER_RULES, llm=make_llm(settings.FAST_MODEL, 8000), verbose=False, allow_delegation=False)
         desc = (f"Today is {_now_text()}.\nRead these sources and produce the brief as JSON matching the Brief schema.\n"
                 f"{_sources_text(sources)}")
         brief = _run_agent_json(reader, desc, "A single JSON object matching the Brief schema.", Brief, READER_RULES)
         self.state.brief = brief
-        self.emit("section", "brief", brief)
+        self.state.brief_is_draft = False
+        self.emit("section", "brief", {**brief, "_draft": False})
+        self._step("reader", "done")
         return brief
 
     @listen(extract_brief)
     def explain_tools(self, brief):
-        self.emit("status", "Explainer agent is writing the tool cards", None)
+        self._step("explainer", "running", "Explainer helper is writing the tool cards")
         explainer = Agent(role="Tool Explainer",
                           goal="Explain each required tool to a builder who has never used it, in plain words.",
                           backstory=("You write for a builder under time pressure who has never used these tools. For each tool write "
@@ -129,11 +161,12 @@ class BriefFlow(Flow[BriefState]):
                                 ToolExplanations, "You rewrite tool descriptions into plain full sentences without inventing event facts.")
         self.state.tools = tools
         self.emit("section", "tools", tools)
+        self._step("explainer", "done")
         return tools
 
     @listen(extract_brief)
     def make_plan(self, brief):
-        self.emit("status", "Planner agent is building the checklist", None)
+        self._step("planner", "running", "Planner helper is building the gameplan")
         planner = Agent(role="Prep Planner",
                         goal="Turn the deadline, agenda and submission rules into a checklist with times.",
                         backstory=("You plan a hackathon day backwards from the submission deadline. The checklist always "
@@ -143,7 +176,8 @@ class BriefFlow(Flow[BriefState]):
                                    "time zone, use it. If the brief has a deadline clock time but no date and the event date is known, "
                                    "combine them. If the brief has no submission deadline at all, do NOT assume one: leave every 'due' "
                                    "null, make next_action 'Find the submission deadline: ask the organizers', and say so in warnings. "
-                                   "The timeline must keep every agenda item, converted to ISO 8601 when the date and time zone are known."),
+                                   "The timeline must keep every agenda item, converted to ISO 8601 when the date and time zone are known. "
+                                   "warnings: only rules that are easy to break, one line each. Never mention the current time or urge haste."),
                         llm=make_llm(settings.FAST_MODEL, 8000), verbose=False, allow_delegation=False)
         desc = (f"Today is {_now_text()}.\nBrief:\n" + json.dumps(
             {k: brief.get(k) for k in ("name", "start", "end", "timezone", "agenda", "submission", "tracks", "required_tools")},
@@ -152,6 +186,7 @@ class BriefFlow(Flow[BriefState]):
                                "You convert a plan into the required JSON without adding facts.")
         self.state.plan = plan
         self.emit("section", "plan", plan)
+        self._step("planner", "done")
         return plan
 
 

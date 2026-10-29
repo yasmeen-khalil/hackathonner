@@ -26,6 +26,7 @@ export default function Countdown({ iso, label, compact }: { iso?: string | null
   useEffect(() => { const t = setInterval(() => setMs(msLeft(iso)), 1000); return () => clearInterval(t); }, [iso]);
   const u = urgency(ms);
   if (ms === null) return <span className="text-sm text-[#6B6458]">{label ? `${label}: ` : ""}no deadline found</span>;
+  if (u === "past") return <span className={`inline-flex items-baseline rounded-full px-3 py-1 ${tone.past} ${compact ? "text-sm" : "text-base"}`}>Submissions closed</span>;
   return (
     <span className={`inline-flex items-baseline gap-2 rounded-full px-3 py-1 font-bold transition-colors duration-[360ms] ${tone[u]} ${compact ? "text-sm" : "text-base"}`}>
       {label && <span className="opacity-80">{label}</span>}

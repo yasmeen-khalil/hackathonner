@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { API, api, Hackathon, Brief, Plan, Tools, After, OneStatus, fmtDate } from "@/lib/api";
+import { API, api, Hackathon, Brief, Plan, Tools, After, OneStatus, RubricItem, fmtDate } from "@/lib/api";
 import Countdown from "@/components/Countdown";
 import { ConnectButton } from "@withone/connect/react";
 
@@ -25,6 +25,8 @@ function Workspace() {
   const { id } = useParams<{ id: string }>();
   const [h, setH] = useState<Hackathon | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [steps, setSteps] = useState<{ key: string; label: string; state: string }[] | null>(null);
+  const [draft, setDraft] = useState(false);
   const [section, setSection] = useState<Section>("brief");
   const [err, setErr] = useState("");
   const [one, setOne] = useState<OneStatus | null>(null);
@@ -39,8 +41,12 @@ function Workspace() {
     es.onmessage = ev => {
       const m = JSON.parse(ev.data);
       if (m.type === "status") setStatus(m.message);
-      else if (m.type === "section") setH(prev => prev ? { ...prev, [m.name]: m.data, name: m.name === "brief" ? m.data.name : prev.name } : prev);
-      else if (m.type === "done") { setStatus(""); setH(prev => prev ? { ...prev, status: prev.status === "building" ? "ready" : prev.status } : prev); es.close(); }
+      else if (m.type === "progress") { setSteps(m.data.steps); if (m.message) setStatus(m.message); }
+      else if (m.type === "section") {
+        if (m.name === "brief") setDraft(!!m.data._draft);
+        setH(prev => prev ? { ...prev, [m.name]: m.data, name: m.name === "brief" ? m.data.name : prev.name } : prev);
+      }
+      else if (m.type === "done") { setStatus(""); setDraft(false); setSteps(null); setH(prev => prev ? { ...prev, status: prev.status === "building" ? "ready" : prev.status } : prev); es.close(); }
       else if (m.type === "error") { setErr(m.message); setStatus(""); es.close(); }
     };
     es.onerror = () => { /* the server closes the stream when done */ };
@@ -71,12 +77,12 @@ function Workspace() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-4xl font-normal leading-tight tracking-tight md:text-5xl">{b?.name || "Building the brief…"}</h1>
+            {draft && <span className="mt-1 inline-block rounded-full bg-[#E4F2E7] px-2 py-0.5 text-xs text-[#6B6458]">First draft, the full brief is still being read</span>}
             <p className="text-sm text-[#6B6458]">{[b?.organizer, fmtDate(b?.start, { weekday: "long", month: "long", day: "numeric" }), b?.venue?.city, b?.format?.replace("_", " ")].filter(Boolean).join(" · ")}</p>
-            <button onClick={async () => { if (confirm("Remove this hackathon and its brief?")) { await api.remove(id); router.push("/"); } }} className="mt-1 text-xs text-[#6B6458] hover:text-[#C8160C]">Remove</button>
           </div>
           <div className="flex flex-col items-end gap-2">
             {h.after?.submitted_at ? <Chip tone="green">Submitted {fmtDate(h.after.submitted_at)}</Chip> : <Countdown iso={deadline} label="Submissions close in" />}
-            {status && <span className="text-xs text-[#6B6458]">Helpers: {status}</span>}
+            {steps && <Steps steps={steps} message={status} />}
             {(err || h.status === "error") && <span className="flex items-center gap-2 text-xs text-[#C8160C]">{err || h.error}
               <button onClick={async () => { setErr(""); setStatus("Starting again"); await fetch(`${API}/api/hackathons/${id}/rebuild`, { method: "POST" }); window.location.reload(); }} className="rounded-full bg-[#C8160C] px-3 py-0.5 font-bold text-white">Rebuild</button></span>}
           </div>
@@ -91,7 +97,7 @@ function Workspace() {
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <H>When</H>
-            <p>{fmtDate(b.start, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}{b.end ? ` to ${fmtDate(b.end, { hour: "numeric", minute: "2-digit" })}` : ""} {b.timezone && <span className="text-[#6B6458]">({b.timezone})</span>}</p>
+            <p>{fmtDate(b.start, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: b.timezone || undefined })}{b.end ? ` to ${fmtDate(b.end, { hour: "numeric", minute: "2-digit", timeZone: b.timezone || undefined, timeZoneName: "short" })}` : ""}</p>
             {b.submission?.deadline_text && <p className="mt-1 text-sm">Submission deadline as written: <span className="font-medium">{b.submission.deadline_text}</span></p>}
             <H>Where</H>
             <p>{b.format === "online" ? "Online" : [b.venue?.name, b.venue?.address, b.venue?.city].filter(Boolean).join(", ") || "Not stated"}</p>
@@ -103,7 +109,7 @@ function Workspace() {
           </div>
           <div>
             <H>Links</H>
-            <ul className="space-y-1 text-sm">{b.links.map((l, i) => <li key={i}><a className="underline" target="_blank" href={l.url}>{l.label}</a> <span className="text-[#6B6458]">{l.kind}</span></li>)}</ul>
+            <ul className="space-y-1 text-sm">{b.links.map((l, i) => <li key={i}><a className="underline" target="_blank" href={l.url}>{l.label}</a>{l.kind && l.kind !== "other" && <span className="text-[#6B6458]"> · {l.kind.replace("_", " ")}</span>}</li>)}</ul>
             <H>Sources read</H>
             <ul className="space-y-1 text-xs text-[#6B6458]">{h.sources?.sources?.map(s => <li key={s.url}>{s.url} · {Math.round(s.chars / 1000)}k chars</li>)}</ul>
             {b.unknowns?.length > 0 && <><H>Not found on the pages, ask the organizers</H><ul className="list-disc pl-5 text-sm">{b.unknowns.map((u, i) => <li key={i}>{u}</li>)}</ul></>}
@@ -121,7 +127,7 @@ function Workspace() {
               {t.disqualifiers.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{t.disqualifiers.map((d, i) => <Chip key={i} tone="red">{d}</Chip>)}</div>}
             </div>))}</div>
           <H>Rubric</H>
-          {b.rubric.length ? <table className="w-full text-sm"><tbody>{b.rubric.map((r, i) => <tr key={i} className=""><td className="py-2 pr-3 font-medium">{r.criterion}</td><td className="py-2 pr-3 whitespace-nowrap text-[#6B6458]">{r.weight}</td><td className="py-2 text-[#6B6458]">{r.looks_for}</td></tr>)}</tbody></table> : <p className="text-sm text-[#6B6458]">No rubric found on the pages.</p>}
+          {b.rubric.length ? <RubricGroups items={b.rubric} /> : <p className="text-sm text-[#6B6458]">No rubric found on the pages.</p>}
           {b.prizes.length > 0 && <><H>Prizes</H><ul className="list-disc pl-5 text-sm">{b.prizes.map((p, i) => <li key={i}>{p}</li>)}</ul></>}
         </div>
       ))}
@@ -153,7 +159,7 @@ function Workspace() {
           </div>
           <div>
             <H>Timeline</H>
-            <ol className="space-y-1 text-sm">{(plan.timeline.length ? plan.timeline : b?.agenda || []).map((a, i) => <li key={i} className="flex gap-3"><span className="w-28 shrink-0 font-mono text-[#6B6458]">{/^\d{4}-/.test(a.time) ? fmtDate(a.time, { hour: "numeric", minute: "2-digit" }) : a.time}</span><span>{a.title}</span></li>)}</ol>
+            <ol className="space-y-1 text-sm">{(plan.timeline.length ? plan.timeline : b?.agenda || []).map((a, i) => <li key={i} className="flex gap-3"><span className="w-24 shrink-0 tabular-nums text-[#6B6458]">{/^\d{4}-/.test(a.time) ? fmtDate(a.time, { hour: "numeric", minute: "2-digit" }) : a.time}</span><span>{a.title}</span></li>)}</ol>
           </div>
         </div>
       ))}
@@ -161,7 +167,7 @@ function Workspace() {
       {section === "submit" && (!b ? <Skeleton /> : (
         <div className="max-w-2xl">
           <div className="hk-block p-4">
-            <div className="flex items-center justify-between"><div className="font-medium">Submission</div><Countdown iso={deadline} compact /></div>
+            <div className="font-medium">Submission</div>
             {b.submission.url && <a className="mt-2 block text-sm underline" target="_blank" href={b.submission.url}>{b.submission.url}</a>}
             {b.submission.instructions && <p className="mt-2 text-sm">{b.submission.instructions}</p>}
             {b.submission.fields.length > 0 && <><H>The form asks for</H><ul className="list-disc pl-5 text-sm">{b.submission.fields.map((f, i) => <li key={i}>{f}</li>)}</ul></>}
@@ -173,6 +179,7 @@ function Workspace() {
 
       {section === "debrief" && <AfterForm after={h.after || {}} onSave={saveAfter} />}
       </div>
+      <footer className="mt-16 text-xs text-[#6B6458]"><button onClick={async () => { if (confirm("Remove this hackathon and its brief?")) { await api.remove(id); router.push("/"); } }} className="rounded-none px-0 hover:text-[#C8160C]">Remove this hackathon</button></footer>
     </div>
   );
 }
@@ -274,6 +281,8 @@ function DeadlineFix({ id, current, onSaved }: { id: string; current?: string | 
   );
 }
 
+const platformName = (k: string) => ({ "google-calendar": "Google Calendar", gmail: "Gmail", discord: "Discord" } as Record<string, string>)[k] || k;
+
 function ConnectionsBox({ one }: { one: OneStatus | null }) {
   const [oc, setOc] = useState<OneConnectStatus | null>(null);
   useEffect(() => { fetch("/api/actions").then(r => r.json()).then(setOc).catch(() => setOc(null)); }, []);
@@ -283,7 +292,7 @@ function ConnectionsBox({ one }: { one: OneStatus | null }) {
       <div className="hk-block p-4 text-sm md:col-span-2">
         <div className="font-medium">Your own apps, through One</div>
         {oc.connected ? (
-          <div className="mt-1 flex flex-wrap gap-2">{Object.entries(oc.platforms).map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{k}{v.connected ? " connected" : " not connected"}</Chip>)}</div>
+          <div className="mt-1 flex flex-wrap gap-2">{Object.entries(oc.platforms).filter(([k, v]) => v.connected || k !== "discord").map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{platformName(k)}{v.connected ? "" : ", not connected"}</Chip>)}</div>
         ) : <p className="mt-1 text-[#6B6458]">Not connected yet. Use the Connect button under Gameplan. Hackathonner only receives what you grant, and you can revoke it on One at any time.</p>}
       </div>
     );
@@ -292,7 +301,38 @@ function ConnectionsBox({ one }: { one: OneStatus | null }) {
   return (
     <div className="hk-block p-4 text-sm md:col-span-2">
       <div className="font-medium">Connections through One</div>
-      <div className="mt-1 flex flex-wrap gap-2">{Object.entries(one.platforms).map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{k}{v.connected ? " connected" : " not connected"}</Chip>)}</div>
+      <div className="mt-1 flex flex-wrap gap-2">{Object.entries(one.platforms).filter(([k, v]) => v.connected || k !== "discord").map(([k, v]) => <Chip key={k} tone={v.connected ? "green" : "neutral"}>{platformName(k)}{v.connected ? "" : ", not connected"}</Chip>)}</div>
     </div>
+  );
+}
+
+function Steps({ steps, message }: { steps: { key: string; label: string; state: string }[]; message: string }) {
+  const done = steps.filter(s => s.state === "done" || s.state === "skipped").length;
+  return (
+    <div className="w-full text-xs md:w-72">
+      <div className="flex items-center gap-1">
+        {steps.map(s => <span key={s.key} title={s.label} className={`h-1.5 flex-1 rounded-full ${s.state === "done" ? "bg-[#1A1712]" : s.state === "running" ? "bg-[#EC6699] animate-pulse" : s.state === "skipped" ? "bg-[#6B6458]" : "bg-[#E4F2E7]"}`} />)}
+      </div>
+      <div className="mt-1 flex justify-between text-[#6B6458]"><span className="truncate">{message || steps.find(s => s.state === "running")?.label || "Working"}</span><span className="shrink-0 pl-2">{done} of {steps.length} · usually 2 to 3 min</span></div>
+    </div>
+  );
+}
+
+function RubricGroups({ items }: { items: RubricItem[] }) {
+  // Group by track; tracks whose criteria are identical share one table so nothing is printed twice.
+  const byTrack = new Map<string, RubricItem[]>();
+  for (const r of items) { const k = r.track || ""; byTrack.set(k, [...(byTrack.get(k) || []), r]); }
+  const sig = (rows: RubricItem[]) => rows.map(r => `${r.criterion}|${r.weight}|${r.looks_for}`).join("\n");
+  const groups: { tracks: string[]; rows: RubricItem[] }[] = [];
+  for (const [track, rows] of byTrack) { const g = groups.find(x => sig(x.rows) === sig(rows)); if (g) g.tracks.push(track); else groups.push({ tracks: [track], rows }); }
+  return (
+    <div className="space-y-5">{groups.map((g, i) => (
+      <div key={i}>
+        {g.tracks.some(Boolean) && <div className="mb-1 text-sm font-bold">{g.tracks.filter(Boolean).join(" and ")}</div>}
+        <div className="space-y-1.5">{g.rows.map((r, j) => (
+          <div key={j} className="hk-block grid gap-1 px-3 py-2 text-sm md:grid-cols-[1fr_auto_2fr] md:gap-4">
+            <div className="font-medium">{r.criterion}</div><div className="whitespace-nowrap text-[#6B6458]">{r.weight}</div><div className="text-[#6B6458]">{r.looks_for}</div>
+          </div>))}</div>
+      </div>))}</div>
   );
 }

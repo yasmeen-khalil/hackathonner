@@ -11,7 +11,7 @@ export default function Nav() {
         const active = href === "/" ? p === "/" || p.startsWith("/h/") : p.startsWith(href);
         return <Link key={href} href={href} className={`flex flex-1 items-center justify-center text-sm md:flex-none md:justify-start md:py-2 ${active ? "font-bold text-[#1A1712] underline decoration-[#1A1712] decoration-2 underline-offset-8" : "text-[#6B6458]"}`}>{label}</Link>;
       })}
-      <Link href="/new" className="flex flex-1 items-center justify-center text-sm font-bold text-[#1A1712] md:mt-4 md:flex-none md:justify-center md:rounded-full md:bg-[#EC6699] md:px-4 md:py-2">Add a hackathon</Link>
+      <Link href="/new" className="flex flex-1 items-center justify-center text-sm font-bold text-[#1A1712] md:mt-4 md:flex-none md:justify-center md:rounded-full md:bg-[#EC6699] md:px-4 md:py-2"><span className="md:hidden">Add</span><span className="hidden md:inline">Add a hackathon</span></Link>
     </nav>
   );
 }

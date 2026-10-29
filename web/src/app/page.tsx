@@ -16,11 +16,11 @@ function Card({ h, onRemove }: { h: HackathonRow; onRemove: (id: string) => void
           <div className="text-sm text-[#6B6458]">{[fmtDate(h.start, { weekday: "short", month: "short", day: "numeric" }), h.city, h.format?.replace("_", " ")].filter(Boolean).join(" · ")}</div>
         </div>
         <div className="mr-16 flex flex-col items-end gap-1 text-xs">
-          <span className="rounded bg-[#E4F2E7] px-2 py-0.5 uppercase tracking-wide text-[#6B6458]">{h.status}</span>
+          {h.status !== "ready" && <span className="rounded-full bg-white px-2 py-0.5 text-[#6B6458]">{h.status === "building" ? "Building" : h.status === "error" ? "Needs a rebuild" : h.status === "submitted" ? "Submitted" : h.status}</span>}
           {h.after?.placing && <span className="rounded bg-[#E4F2E7] px-2 py-0.5 text-[#1A1712]">{h.after.placing}</span>}
         </div>
       </div>
-      {h.deadline && h.status !== "submitted" && <div className="mt-3"><Countdown iso={h.deadline} label="Submissions close in" compact /></div>}
+      {h.deadline && h.status !== "submitted" && new Date(h.deadline).getTime() > Date.now() && <div className="mt-3"><Countdown iso={h.deadline} label="Submissions close in" compact /></div>}
       {h.error && <div className="mt-2 text-sm text-[#C8160C]">{h.error}</div>}
     </Link>
     </div>

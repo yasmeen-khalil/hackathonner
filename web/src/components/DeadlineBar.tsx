@@ -17,12 +17,12 @@ export default function DeadlineBar() {
     load(); const t = setInterval(load, 30_000);
     return () => { alive = false; clearInterval(t); };
   }, []);
-  if (!next) return <div className="h-11 bg-[#E4F2E7] px-4 text-sm leading-[44px] text-[#6B6458]">No upcoming deadline. Add a hackathon to start a countdown.</div>;
+  if (!next) return <div className="h-11 truncate bg-[#E4F2E7] px-4 text-sm leading-[44px] text-[#6B6458]">No upcoming deadline yet.</div>;
   const u = urgency(msLeft(next.deadline));
   const bar = u === "red" ? "bg-[#C8160C] text-white" : u === "amber" ? "bg-[#F59100] text-[#1A1712]" : "bg-[#EC6699] text-[#1A1712]";
   return (
     <Link href={`/h/${next.id}`} className={`flex h-11 items-center justify-between gap-3 px-4 text-sm transition-colors duration-[360ms] ${bar}`}>
-      <span className="truncate"><span className="font-bold">Submissions</span> · {next.name} · closes {fmtDate(next.deadline, { hour: "numeric", minute: "2-digit" })}</span>
+      <span className="min-w-0 truncate"><span className="font-bold">Submissions</span><span className="hidden sm:inline"> · {next.name}</span> · closes {fmtDate(next.deadline, { hour: "numeric", minute: "2-digit" })}</span>
       <Countdown iso={next.deadline} compact />
     </Link>
   );

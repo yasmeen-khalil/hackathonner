@@ -26,7 +26,9 @@ STATEMENTS = [
   plan_json TEXT,
   after_json TEXT,
   error TEXT,
-  owner TEXT NOT NULL DEFAULT 'local'
+  owner TEXT NOT NULL DEFAULT 'local',
+  draft INTEGER NOT NULL DEFAULT 0,
+  progress_json TEXT
 )""",
     """CREATE TABLE IF NOT EXISTS kv (
   owner TEXT NOT NULL,
@@ -91,10 +93,17 @@ def init():
     with conn() as c:
         for stmt in STATEMENTS:
             c.execute(stmt)
-        if not PG:
+        if PG:
+            c.execute("ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS draft INTEGER NOT NULL DEFAULT 0")
+            c.execute("ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS progress_json TEXT")
+        else:
             cols = {r["name"] for r in c.execute("PRAGMA table_info(hackathons)").fetchall()}
             if "owner" not in cols:
                 c.execute("ALTER TABLE hackathons ADD COLUMN owner TEXT NOT NULL DEFAULT 'local'")
+            if "draft" not in cols:
+                c.execute("ALTER TABLE hackathons ADD COLUMN draft INTEGER NOT NULL DEFAULT 0")
+            if "progress_json" not in cols:
+                c.execute("ALTER TABLE hackathons ADD COLUMN progress_json TEXT")
 
 
 def engine() -> str:

@@ -66,12 +66,16 @@ def _build(hid: str, urls: list[str]):
     def emit(kind: str, name_or_msg: str, data: dict | None):
         if kind == "status":
             _broadcast(hid, {"type": "status", "message": name_or_msg})
+        elif kind == "progress":
+            storage.update(hid, progress_json=data)
+            _broadcast(hid, {"type": "progress", "message": name_or_msg, "data": data})
         elif kind == "sources":
             storage.update(hid, sources_json=data)
             _broadcast(hid, {"type": "sources", "data": data})
         elif kind == "section":
             if name_or_msg == "brief":
-                storage.update(hid, brief_json=data, name=data.get("name"))
+                clean = {k: v for k, v in data.items() if k != "_draft"}
+                storage.update(hid, brief_json=clean, name=clean.get("name"), draft=1 if data.get("_draft") else 0)
             elif name_or_msg == "tools":
                 storage.update(hid, tools_json=data)
             elif name_or_msg == "plan":
@@ -175,7 +179,7 @@ def rebuild(hid: str, x_user_id: str | None = Header(default=None)):
     d = storage.get(hid, owner_of(x_user_id))
     if not d:
         raise HTTPException(404, "Not found")
-    storage.update(hid, status="building", error=None, tools_json=None, plan_json=None)
+    storage.update(hid, status="building", error=None, tools_json=None, plan_json=None, progress_json=None)
     threading.Thread(target=_build, args=(hid, d["urls"]), daemon=True).start()
     return {"id": hid, "status": "building"}
 
@@ -190,9 +194,14 @@ async def events(hid: str, x_user_id: str | None = Header(default=None)):
     async def gen():
         try:
             # Replay what already exists, so a reload never shows a blank page.
+            if d.get("progress"):
+                yield {"event": "message", "data": json.dumps({"type": "progress", "message": "", "data": d["progress"]})}
             for name in ("brief", "tools", "plan"):
                 if d.get(name):
-                    yield {"event": "message", "data": json.dumps({"type": "section", "name": name, "data": d[name]})}
+                    payload = dict(d[name])
+                    if name == "brief":
+                        payload["_draft"] = bool(d.get("draft"))
+                    yield {"event": "message", "data": json.dumps({"type": "section", "name": name, "data": payload})}
             if d["status"] in ("ready", "error"):
                 yield {"event": "message", "data": json.dumps({"type": "done"} if d["status"] == "ready" else {"type": "error", "message": d.get("error")})}
                 return

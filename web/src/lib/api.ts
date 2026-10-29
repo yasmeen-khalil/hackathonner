@@ -5,7 +5,7 @@ export type Link = { label: string; url: string; kind: string };
 export type Venue = { name?: string | null; address?: string | null; city?: string | null; map_url?: string | null; doors_time?: string | null };
 export type Track = { name: string; summary: string; requirements: string[]; disqualifiers: string[] };
 export type RequiredTool = { name: string; what_it_is: string; job_here: string; key_source?: string | null; docs_url?: string | null; free_for_event?: boolean | null };
-export type RubricItem = { criterion: string; weight?: string | null; looks_for?: string | null };
+export type RubricItem = { track?: string | null; criterion: string; weight?: string | null; looks_for?: string | null };
 export type Submission = { url?: string | null; deadline?: string | null; deadline_text?: string | null; fields: string[]; instructions?: string | null };
 export type AgendaItem = { time: string; title: string };
 export type ChecklistItem = { title: string; due?: string | null; done: boolean };
@@ -21,7 +21,7 @@ export type After = { team_handle?: string; emailed_to?: string; emailed_at?: st
 export type Hackathon = {
   id: string; status: "building" | "ready" | "error" | "submitted"; name?: string | null; urls: string[];
   sources?: { sources: { url: string; chars: number }[] } | null; brief?: Brief | null; tools?: Tools | null; plan?: Plan | null;
-  after?: After | null; error?: string | null; created_at: string; updated_at: string;
+  after?: After | null; error?: string | null; created_at: string; updated_at: string; draft?: number; progress?: { steps: { key: string; label: string; state: string }[] } | null;
 };
 export type OneStatus = { cli: boolean; error?: string; platforms: Record<string, { connected: boolean; count: number; name?: string | null }> };
 export type HackathonRow = {
@@ -50,5 +50,6 @@ export const api = {
 export function fmtDate(iso?: string | null, opts: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) {
   if (!iso) return "";
   const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, opts);
+  if (isNaN(d.getTime())) return iso;
+  try { return d.toLocaleString(undefined, opts); } catch { const { timeZone, timeZoneName, ...rest } = opts; void timeZone; void timeZoneName; return d.toLocaleString(undefined, rest); }
 }
