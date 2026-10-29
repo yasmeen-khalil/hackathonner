@@ -18,6 +18,7 @@ Every hackathon scatters its information. Today's event alone lived on a Luma pa
 4. **Your calendar, read only.** Connect your own Google Calendar through One Connect and Hackathonner reads the next 90 days, spots the hackathons you already signed up for, and offers to start their brief with one click. It never writes to your calendar. One click also emails you the brief and gameplan through your own Gmail. Every grant is yours to revoke on One.
 5. **Discover.** Live search for upcoming hackathons, ranked against your profile with an honest fit score and reason.
 6. **Debrief.** Mark the project submitted, then record placing, prizes, judge comments and notes as they arrive.
+7. **Teams.** Create a team, share its invite link, and approve who joins. A brief shared with the team shows up for every approved member with the same gameplan and notes. Only the person who added a brief can remove it.
 
 ## How the four partners work together
 
@@ -70,8 +71,8 @@ Requirements: Python 3.10 to 3.13 (CrewAI does not support 3.14) and Node 20 or 
 
 ## Roadmap
 
-Teams: one leader, a share link any member can pass on, join requests that the leader approves, and briefs owned by the team so everyone sees the same gameplan. In-app chat with the helpers that edits the checklist. A Claude Code or Codex bridge. A Loom-style recorder with spacebar pause for the demo video. Apple Calendar and Luma sync. QR code scanning at the venue. Team members sharing one brief.
+In-app chat with the helpers that edits the checklist. A Claude Code or Codex bridge. A Loom-style recorder with spacebar pause for the demo video. Apple Calendar and Luma sync. QR code scanning at the venue. Team members sharing one brief.
 
 ## Honest notes
 
-Extraction is only as good as the pages: when a page omits the date or the deadline, the brief says so under "ask the organizers" and you can set the deadline by hand. The Reader takes two to three minutes on a long page; sections stream in as they finish. Fit scores in Discover come from search snippets, not from reading each event page.
+Extraction is only as good as the pages: when a page omits the date or the deadline, the brief says so under "ask the organizers" and you can set the deadline by hand. A first draft of the brief appears in about half a minute and the full Reader replaces it a minute or two later; the other sections stream in as they finish. Fit scores in Discover come from search snippets, not from reading each event page.
